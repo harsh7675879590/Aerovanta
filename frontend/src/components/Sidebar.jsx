@@ -37,20 +37,13 @@ export default function Sidebar({ activeNav, onSelectNav, isCollapsed, onToggleC
       <div>
         <div className="h-16 flex items-center justify-between px-4 border-b border-[#1a2236]">
           <div className="flex items-center gap-3 overflow-hidden">
-            {/* Wind Turbine in Cyan/Blue Wave mark */}
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-b from-[#0e172a] to-[#0a1120] border border-[#22304d] flex items-center justify-center flex-shrink-0 shadow-lg shadow-sky-500/10">
-              <svg viewBox="0 0 40 40" className="w-6 h-6">
-                {/* Turbine */}
-                <circle cx="20" cy="14" r="2" fill="#cbd5e1" stroke="#38bdf8" strokeWidth="0.8"/>
-                <line x1="20" y1="14" x2="20" y2="4" stroke="#e2e8f0" strokeWidth="1.2" strokeLinecap="round"/>
-                <line x1="20" y1="14" x2="10" y2="20" stroke="#e2e8f0" strokeWidth="1.2" strokeLinecap="round"/>
-                <line x1="20" y1="14" x2="30" y2="20" stroke="#e2e8f0" strokeWidth="1.2" strokeLinecap="round"/>
-                <line x1="20" y1="14" x2="20" y2="28" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round"/>
-                {/* Cyan Waves */}
-                <path d="M8 27 Q14 23 20 27 T32 27" fill="none" stroke="#38bdf8" strokeWidth="1.5" strokeLinecap="round"/>
-                <path d="M6 31 Q13 27 20 31 T34 31" fill="none" stroke="#0ea5e9" strokeWidth="1.8" strokeLinecap="round"/>
-                <path d="M10 35 Q15 32 20 35 T30 35" fill="none" stroke="#0284c7" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
+            {/* Official Aerovanta Favicon / Turbine Wave Symbol */}
+            <div className="w-10 h-10 rounded-xl bg-[#090d18] border border-[#22304d] overflow-hidden flex items-center justify-center flex-shrink-0 shadow-lg shadow-sky-500/20 group">
+              <img
+                src="/favicon.png"
+                alt="Aerovanta Symbol"
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+              />
             </div>
 
             {!isCollapsed && (
