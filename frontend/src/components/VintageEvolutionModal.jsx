@@ -187,3 +187,4 @@ export default function VintageEvolutionModal({ interval, cutoffTimestamp, onClo
     </div>
   );
 }
+

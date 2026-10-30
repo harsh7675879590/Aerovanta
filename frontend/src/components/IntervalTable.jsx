@@ -200,3 +200,4 @@ export default function IntervalTable({ intervals, targetDate, cutoffPreset, cus
     </div>
   );
 }
+

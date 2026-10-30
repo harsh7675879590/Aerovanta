@@ -185,3 +185,4 @@ export default function GenerationChart({ intervals, onSelectInterval }) {
     </div>
   );
 }
+

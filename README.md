@@ -198,3 +198,4 @@ The accompanying unlisted YouTube presentation covers two distinct perspectives:
 In accordance with the assignment guidelines:
 - **AI Tools Used:** Claude / Gemini were utilized as coding and architectural design assistants during the development of this platform.
 - **Human Oversight:** All domain logic (EPEX SPOT 11:00 GMT auction gate closure, Elexon BMRS streaming queries, vintage selection rules, half-hourly MWh integration, and error math safeguards) was thoroughly verified against official Elexon market documentation and validated through comprehensive Pytest suites.
+
