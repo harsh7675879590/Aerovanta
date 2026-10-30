@@ -201,3 +201,4 @@ export default function HeatmapMatrixCard({ intervals, selectedDate, onSelectInt
     </div>
   );
 }
+

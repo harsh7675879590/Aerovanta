@@ -127,3 +127,4 @@ export default function Sidebar({ activeNav, onSelectNav, isCollapsed, onToggleC
     </aside>
   );
 }
+

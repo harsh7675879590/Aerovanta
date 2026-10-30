@@ -298,3 +298,4 @@ export default function ChartCard({ intervals, targetDate, cutoffPreset, onSelec
     </div>
   );
 }
+
