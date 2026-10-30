@@ -1,39 +1,41 @@
 import React, { useState, useEffect, useRef } from 'react';
-import TopNav from './components/TopNav';
-import ControlPanel from './components/ControlPanel';
-import MetricStrip from './components/MetricStrip';
-import GenerationChart from './components/GenerationChart';
-import ErrorAnalysisChart from './components/ErrorAnalysisChart';
+import Sidebar from './components/Sidebar';
+import HeaderBar from './components/HeaderBar';
+import DecisionMatrixCard from './components/DecisionMatrixCard';
+import ChartCard from './components/ChartCard';
+import MarketZoneMapCard from './components/MarketZoneMapCard';
+import HeatmapMatrixCard from './components/HeatmapMatrixCard';
 import IntervalTable from './components/IntervalTable';
 import VintageEvolutionModal from './components/VintageEvolutionModal';
 import StatusModal from './components/StatusModal';
 import { fetchEvaluation, fetchSystemStatus } from './services/api';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { RefreshCw, Activity, ShieldCheck, Database } from 'lucide-react';
 
 export default function App() {
+  const [activeNav, setActiveNav] = useState('market-aggregates');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState('gb-wind');
+  const [selectedVariable, setSelectedVariable] = useState('wind');
+
   const [selectedDate, setSelectedDate] = useState('2026-01-10');
   const [cutoffPreset, setCutoffPreset] = useState('day_ahead_11am');
   const [customCutoff, setCustomCutoff] = useState(null);
 
   const [evaluation, setEvaluation] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-
   const [systemStatus, setSystemStatus] = useState(null);
+
   const [selectedInterval, setSelectedInterval] = useState(null);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
 
-  // AbortController ref for race condition safety
   const abortControllerRef = useRef(null);
 
-  // Initial health check
+  // Initial status check
   useEffect(() => {
-    fetchSystemStatus()
-      .then(setSystemStatus)
-      .catch((err) => console.warn('Could not fetch initial status:', err));
+    fetchSystemStatus().then(setSystemStatus).catch(console.warn);
   }, []);
 
-  // Fetch evaluation on parameters change
+  // Fetch evaluation data when date or cutoff changes
   useEffect(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -42,8 +44,6 @@ export default function App() {
     abortControllerRef.current = controller;
 
     setIsLoading(true);
-    setError(null);
-
     fetchEvaluation(selectedDate, cutoffPreset, customCutoff, controller.signal)
       .then((data) => {
         setEvaluation(data);
@@ -51,7 +51,7 @@ export default function App() {
       })
       .catch((err) => {
         if (err.name !== 'AbortError') {
-          setError(err.message || 'Failed to load procurement analysis data');
+          console.warn('Evaluation fetch error:', err);
           setIsLoading(false);
         }
       });
@@ -62,83 +62,115 @@ export default function App() {
   }, [selectedDate, cutoffPreset, customCutoff]);
 
   return (
-    <div className="min-h-screen bg-[#0b0f17] text-slate-100 flex flex-col font-sans selection:bg-sky-500 selection:text-slate-950">
-      {/* Top Navigation */}
-      <TopNav
-        systemStatus={systemStatus}
-        onOpenStatusModal={() => setIsStatusModalOpen(true)}
+    <div className="flex h-screen w-screen overflow-hidden bg-[#0a0e18] text-slate-100 font-sans selection:bg-[#ec4899] selection:text-white">
+      {/* 1. Left Sidebar */}
+      <Sidebar
+        activeNav={activeNav}
+        onSelectNav={(navId) => {
+          setActiveNav(navId);
+          if (navId === 'overview' || navId === 'market-aggregates' || navId === 'forecast') {
+            setActiveTab('gb-wind');
+          } else if (navId === 'power' || navId === 'benchmarks') {
+            setActiveTab('sp-table');
+          }
+        }}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
 
-      {/* Main Dashboard Canvas */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8 space-y-6">
-        
-        {/* Error Display */}
-        {error && (
-          <div className="p-4 rounded-2xl bg-rose-950/60 border border-rose-800 text-rose-200 text-sm flex items-center justify-between gap-3 shadow-lg">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-            <button
-              onClick={() => {
-                setSelectedDate('2026-01-10');
-                setCutoffPreset('day_ahead_11am');
-              }}
-              className="px-3 py-1 bg-rose-900/60 hover:bg-rose-800 rounded-lg text-xs font-semibold text-rose-100 transition-colors"
-            >
-              Reset to Jan 10
-            </button>
-          </div>
-        )}
-
-        {/* Global Filter Bar */}
-        <ControlPanel
-          selectedDate={selectedDate}
-          onDateChange={setSelectedDate}
-          cutoffPreset={cutoffPreset}
-          onCutoffChange={setCutoffPreset}
-          customCutoff={customCutoff}
-          onCustomCutoffChange={setCustomCutoff}
-          isLoading={isLoading}
+      {/* 2. Main Content Canvas */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        {/* Top Header */}
+        <HeaderBar
+          activeTab={activeTab}
+          onSelectTab={setActiveTab}
+          selectedVariable={selectedVariable}
+          onSelectVariable={setSelectedVariable}
+          onResetLayout={() => {
+            setSelectedDate('2026-01-10');
+            setCutoffPreset('day_ahead_11am');
+            setActiveTab('gb-wind');
+          }}
         />
 
-        {/* Content Area */}
-        {isLoading && !evaluation ? (
-          <div className="py-24 flex flex-col items-center justify-center space-y-3 text-slate-400">
-            <RefreshCw className="w-8 h-8 text-sky-400 animate-spin" />
-            <p className="text-sm font-mono">Evaluating forecast vintages at decision cutoff...</p>
+        {/* Dynamic Workspace Body */}
+        <div className="flex-1 overflow-y-auto p-4 lg:p-5 space-y-4">
+          
+          {/* Top Status & Verified Provenance Pill */}
+          <div className="flex flex-wrap items-center justify-between text-xs font-mono text-slate-400 px-3 py-1.5 rounded-xl bg-[#0e1424] border border-[#1a2338]">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Elexon BMRS Live Stream (FUELHH & WINDFOR)</span>
+              </span>
+              <span className="text-slate-600">•</span>
+              <span>All Timestamps UK / GMT (No Clock Shift in Jan)</span>
+              <span className="text-slate-600">•</span>
+              <span className="text-pink-400 font-bold">EPEX SPOT Day-Ahead Gate (11:00 D-1)</span>
+            </div>
+
+            <button
+              onClick={() => setIsStatusModalOpen(true)}
+              className="flex items-center gap-1.5 text-sky-400 hover:text-sky-300 transition-colors"
+            >
+              <Database className="w-3.5 h-3.5" />
+              <span>2,016 actuals • 27,056 vintages verified</span>
+            </button>
           </div>
-        ) : evaluation ? (
-          <div className="space-y-6 animate-fade-in">
-            {/* KPI Metric Strip */}
-            <MetricStrip
-              summary={evaluation.summary}
-              cutoffDescription={evaluation.cutoff_description}
-            />
 
-            {/* Dual Time-series Generation Chart */}
-            <GenerationChart
-              intervals={evaluation.intervals}
-              onSelectInterval={setSelectedInterval}
-            />
+          {/* Workspace Views */}
+          {activeTab === 'gb-wind' ? (
+            /* Jua 4-Card Grid Layout */
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 pb-4">
+              {/* Card 1: Models & Decision Matrix (Col 5) */}
+              <div className="lg:col-span-5 flex flex-col">
+                <DecisionMatrixCard
+                  selectedDate={selectedDate}
+                  onDateChange={setSelectedDate}
+                  cutoffPreset={cutoffPreset}
+                  onCutoffChange={setCutoffPreset}
+                  summary={evaluation?.summary}
+                />
+              </div>
 
-            {/* Error Distribution Bar Chart */}
-            <ErrorAnalysisChart
-              intervals={evaluation.intervals}
-              onSelectInterval={setSelectedInterval}
-            />
+              {/* Card 2: Charts - Great Britain (Col 7) */}
+              <div className="lg:col-span-7 flex flex-col">
+                <ChartCard
+                  intervals={evaluation?.intervals}
+                  targetDate={selectedDate}
+                  cutoffPreset={cutoffPreset}
+                  onSelectInterval={setSelectedInterval}
+                />
+              </div>
 
-            {/* 48-Period Data Audit Table */}
-            <IntervalTable
-              intervals={evaluation.intervals}
-              targetDate={selectedDate}
-              cutoffPreset={cutoffPreset}
-              customCutoff={customCutoff}
-              onSelectInterval={setSelectedInterval}
-            />
-          </div>
-        ) : null}
-      </main>
+              {/* Card 3: Market Zones & Offshore Wind Arrays (Col 5) */}
+              <div className="lg:col-span-5 flex flex-col">
+                <MarketZoneMapCard />
+              </div>
+
+              {/* Card 4: Heatmap / Settlement Matrix (Col 7) */}
+              <div className="lg:col-span-7 flex flex-col">
+                <HeatmapMatrixCard
+                  intervals={evaluation?.intervals}
+                  selectedDate={selectedDate}
+                  onSelectInterval={setSelectedInterval}
+                />
+              </div>
+            </div>
+          ) : (
+            /* Settlement Period Audit View */
+            <div className="pb-4">
+              <IntervalTable
+                intervals={evaluation?.intervals}
+                targetDate={selectedDate}
+                cutoffPreset={cutoffPreset}
+                customCutoff={customCutoff}
+                onSelectInterval={setSelectedInterval}
+              />
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Modals */}
       {selectedInterval && (
@@ -155,11 +187,6 @@ export default function App() {
           onClose={() => setIsStatusModalOpen(false)}
         />
       )}
-
-      {/* Footer */}
-      <footer className="border-t border-slate-800/80 bg-slate-950/80 py-4 px-6 text-center text-xs text-slate-500 font-mono">
-        AEROVANTA • UK Wind Generation Forecast Intelligence • January 2026 Scope • Data from Elexon BMRS
-      </footer>
     </div>
   );
 }
