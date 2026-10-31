@@ -167,3 +167,4 @@ export default function BenchmarkDeskView({ onNavigate, targetDate }) {
     </div>
   );
 }
+

@@ -140,3 +140,4 @@ export default function OracleDeskView({ onNavigate, targetDate }) {
     </div>
   );
 }
+
