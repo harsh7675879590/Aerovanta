@@ -9,12 +9,21 @@ import {
   Globe2,
   Layers,
   FileText,
-  HelpCircle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  TrendingUp,
+  Activity,
+  ShieldCheck,
+  ExternalLink
 } from 'lucide-react';
 
-export default function Sidebar({ activeNav, onSelectNav, isCollapsed, onToggleCollapse }) {
+export default function Sidebar({
+  activeNav,
+  onSelectNav,
+  isCollapsed,
+  onToggleCollapse,
+  onOpenHelp
+}) {
   const navItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'oracle', label: 'Oracle / Elexon', icon: Sparkles },
@@ -35,10 +44,10 @@ export default function Sidebar({ activeNav, onSelectNav, isCollapsed, onToggleC
     >
       {/* Top Branding Section */}
       <div>
-        <div className="h-16 flex items-center justify-between px-4 border-b border-[#1a2236]">
-          <div className="flex items-center gap-3 overflow-hidden">
+        <div className="h-14 flex items-center justify-between px-4 border-b border-[#1a2236]">
+          <div className="flex items-center gap-3 overflow-hidden cursor-pointer" onClick={() => onSelectNav('overview')}>
             {/* Official Aerovanta Favicon / Turbine Wave Symbol */}
-            <div className="w-10 h-10 rounded-xl bg-[#090d18] border border-[#22304d] overflow-hidden flex items-center justify-center flex-shrink-0 shadow-lg shadow-sky-500/20 group">
+            <div className="w-9 h-9 rounded-xl bg-[#090d18] border border-[#22304d] overflow-hidden flex items-center justify-center flex-shrink-0 shadow-lg shadow-sky-500/20 group">
               <img
                 src="/favicon.png"
                 alt="Aerovanta Symbol"
@@ -60,7 +69,7 @@ export default function Sidebar({ activeNav, onSelectNav, isCollapsed, onToggleC
 
           <button
             onClick={onToggleCollapse}
-            className="text-slate-400 hover:text-white p-1 rounded-md hover:bg-slate-800 transition-colors"
+            className="text-slate-400 hover:text-white p-1 rounded-md hover:bg-slate-800 transition-colors cursor-pointer"
             title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -78,7 +87,7 @@ export default function Sidebar({ activeNav, onSelectNav, isCollapsed, onToggleC
               <button
                 key={item.id}
                 onClick={() => onSelectNav(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left group ${
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all text-left group cursor-pointer ${
                   isActive
                     ? 'bg-[#e83a78]/15 text-[#f43f85] border border-[#e83a78]/30 font-semibold shadow-sm shadow-[#e83a78]/20'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-[#151c2e]'
@@ -87,7 +96,11 @@ export default function Sidebar({ activeNav, onSelectNav, isCollapsed, onToggleC
               >
                 <Icon
                   className={`w-4 h-4 flex-shrink-0 transition-colors ${
-                    isActive ? 'text-[#f43f85]' : isSpecial ? 'text-[#ec4899] group-hover:text-pink-300' : 'text-slate-400 group-hover:text-slate-200'
+                    isActive
+                      ? 'text-[#f43f85]'
+                      : isSpecial
+                      ? 'text-[#ec4899] group-hover:text-pink-300'
+                      : 'text-slate-400 group-hover:text-slate-200'
                   }`}
                 />
                 {!isCollapsed && (
@@ -102,9 +115,11 @@ export default function Sidebar({ activeNav, onSelectNav, isCollapsed, onToggleC
       {/* Bottom Help / Status section */}
       <div className="p-3 border-t border-[#1a2236]">
         <div
-          className={`flex items-center gap-2 p-2 rounded-xl bg-[#141b2b] text-slate-400 hover:text-white cursor-pointer transition-colors ${
+          onClick={onOpenHelp}
+          className={`flex items-center gap-2.5 p-2 rounded-xl bg-[#141b2b] hover:bg-[#1c263c] text-slate-400 hover:text-white cursor-pointer transition-colors ${
             isCollapsed ? 'justify-center' : ''
           }`}
+          title="Click to view BMRS status & regulatory guidelines"
         >
           <div className="w-6 h-6 rounded-lg bg-[#e83a78] text-white flex items-center justify-center font-bold text-xs shadow-md shadow-pink-500/20">
             ?
@@ -112,7 +127,7 @@ export default function Sidebar({ activeNav, onSelectNav, isCollapsed, onToggleC
           {!isCollapsed && (
             <div className="flex flex-col text-[11px] leading-tight">
               <span className="text-slate-200 font-medium">BMRS Intelligence</span>
-              <span className="text-slate-500 text-[10px]">GB Wind Desk</span>
+              <span className="text-slate-500 text-[10px]">GB Wind Desk • Verified</span>
             </div>
           )}
         </div>
@@ -120,4 +135,3 @@ export default function Sidebar({ activeNav, onSelectNav, isCollapsed, onToggleC
     </aside>
   );
 }
-
