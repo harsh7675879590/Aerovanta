@@ -11,7 +11,7 @@ import {
   BookOpen
 } from 'lucide-react';
 
-export default function OracleDeskView({ onNavigate, targetDate }) {
+export default function OracleDeskView({ onNavigate, targetDate, backendConnected = true }) {
   const elexonStreams = [
     {
       code: 'FUELHH',
@@ -93,8 +93,12 @@ export default function OracleDeskView({ onNavigate, targetDate }) {
               <Database className="w-4 h-4 text-[#38bdf8]" />
               <span>Streaming BMRS Feeds Ingested</span>
             </span>
-            <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
-              ● Live Reconciled
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+              backendConnected
+                ? 'text-emerald-400 bg-emerald-950/60 border-emerald-800/40'
+                : 'text-amber-400 bg-amber-950/60 border-amber-700/40'
+            }`}>
+              {backendConnected ? '● Live Reconciled' : '⚠ Embedded Store'}
             </span>
           </div>
 

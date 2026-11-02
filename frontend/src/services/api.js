@@ -53,26 +53,31 @@ export async function fetchEvaluation(date, cutoffPreset = "day_ahead_11am", cus
       }
 
       // Synthesize historical vintages progression for interval
+      const datePart = startTime.split('T')[0];
+      const prevDate = new Date(datePart);
+      prevDate.setDate(prevDate.getDate() - 1);
+      const prevDayStr = prevDate.toISOString().split('T')[0];
+
       return {
         start_time: startTime,
         vintages: [
           {
             start_time: startTime,
-            publish_time: startTime.replace(/T\d{2}:/, "T02:"),
+            publish_time: `${prevDayStr}T02:00:00Z`,
             forecast_mw: 9240.0,
             forecast_mwh: 4620.0,
             lead_time_hours: 36.0
           },
           {
             start_time: startTime,
-            publish_time: startTime.replace(/T\d{2}:/, "T09:"),
+            publish_time: `${prevDayStr}T09:00:00Z`,
             forecast_mw: 9850.0,
             forecast_mwh: 4925.0,
             lead_time_hours: 24.5
           },
           {
             start_time: startTime,
-            publish_time: startTime.replace(/T\d{2}:/, "T14:"),
+            publish_time: `${prevDayStr}T11:00:00Z`,
             forecast_mw: 10420.0,
             forecast_mwh: 5210.0,
             lead_time_hours: 12.0

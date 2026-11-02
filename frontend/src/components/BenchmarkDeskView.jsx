@@ -64,6 +64,18 @@ export default function BenchmarkDeskView({ onNavigate, targetDate }) {
     }
   ];
 
+  const parseMetricVal = (str) => {
+    if (!str) return 99999;
+    const num = parseFloat(str.replace(/[^0-9.-]/g, ''));
+    return isNaN(num) ? 99999 : Math.abs(num);
+  };
+
+  const sortedModels = [...models].sort((a, b) => {
+    const aVal = parseMetricVal(a[selectedMetric]);
+    const bVal = parseMetricVal(b[selectedMetric]);
+    return aVal - bVal;
+  });
+
   return (
     <div className="space-y-5 animate-fade-in font-mono">
       {/* Top Banner */}
@@ -115,7 +127,7 @@ export default function BenchmarkDeskView({ onNavigate, targetDate }) {
 
       {/* Benchmark Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {models.map(m => (
+        {sortedModels.map((m, idx) => (
           <div
             key={m.id}
             className={`p-4 rounded-2xl border shadow-xl flex flex-col justify-between space-y-3 transition-all ${
@@ -126,7 +138,15 @@ export default function BenchmarkDeskView({ onNavigate, targetDate }) {
           >
             <div>
               <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                <span>{m.category}</span>
+                <span className={`px-2 py-0.5 rounded font-bold font-mono text-[10px] ${
+                  idx === 0
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : idx === 1
+                    ? 'bg-slate-500/20 text-slate-300 border border-slate-600/40'
+                    : 'bg-slate-800/60 text-slate-400 border border-slate-700/40'
+                }`}>
+                  #{idx + 1} Rank
+                </span>
                 {m.highlight && (
                   <span className="px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-300 font-bold">
                     Official EPEX
@@ -134,6 +154,7 @@ export default function BenchmarkDeskView({ onNavigate, targetDate }) {
                 )}
               </div>
               <div className="font-bold text-white text-sm">{m.name}</div>
+              <div className="text-[10px] text-slate-500">{m.category}</div>
             </div>
 
             <div className="space-y-2 border-t border-[#1b2337] pt-2 text-xs">

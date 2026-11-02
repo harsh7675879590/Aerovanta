@@ -79,6 +79,7 @@ export default function App() {
     setActiveNav(navId);
     if (navId === 'overview' || navId === 'market-aggregates' || navId === 'forecast') {
       setActiveTab('gb-wind');
+      setCardLayout('all');
     } else if (navId === 'power') {
       setActiveTab('sp-table');
     } else if (navId === 'benchmarks' || navId === 'live-benchmarking') {
@@ -87,6 +88,8 @@ export default function App() {
       setActiveTab('oracle');
     } else if (navId === 'map') {
       setActiveTab('gb-wind');
+      setCardLayout('all');
+      setSelectedZone('GB_NATIONAL');
     } else if (navId === 'documentation') {
       setActiveTab('documentation');
     }
@@ -158,9 +161,9 @@ export default function App() {
           {/* Top Status & Verified Provenance Pill */}
           <div className="flex flex-wrap items-center justify-between text-xs font-mono text-slate-400 px-3 py-1.5 rounded-xl bg-[#0e1424] border border-[#1a2338]">
             <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1.5 text-emerald-400 font-bold">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Elexon BMRS Live Stream (FUELHH & WINDFOR)</span>
+              <span className={`flex items-center gap-1.5 font-bold ${evaluation?.is_live !== false ? 'text-emerald-400' : 'text-amber-400'}`}>
+                <span className={`w-2 h-2 rounded-full animate-pulse ${evaluation?.is_live !== false ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                <span>{evaluation?.is_live !== false ? 'Elexon BMRS Live Stream (FUELHH & WINDFOR)' : 'Embedded Dataset (Backend Offline)'}</span>
               </span>
               <span className="text-slate-600">•</span>
               <span>All Timestamps UK / GMT</span>
@@ -251,6 +254,7 @@ export default function App() {
               <OracleDeskView
                 onNavigate={setActiveTab}
                 targetDate={selectedDate}
+                backendConnected={systemStatus?.backend_connected !== false}
               />
             </div>
           )}

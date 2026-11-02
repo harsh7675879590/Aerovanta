@@ -24,6 +24,16 @@ export default function StatusModal({ statusData, onClose }) {
         </div>
 
         <div className="p-6 overflow-y-auto space-y-6 text-xs text-slate-300">
+          {/* Offline warning banner if backend is disconnected */}
+          {statusData.backend_connected === false && (
+            <div className="p-3.5 rounded-xl bg-amber-950/40 border border-amber-600/50 flex items-center gap-3 text-amber-300 font-mono">
+              <span className="text-amber-400 text-lg">⚠</span>
+              <div className="text-[11px] leading-tight">
+                <span className="font-bold text-amber-200">Backend Server Offline</span> — Platform is operating on verified embedded January 2026 Elexon BMRS dataset. All calculations, matrices, and charts are fully functional.
+              </div>
+            </div>
+          )}
+
           {/* Database stats */}
           <div className="grid grid-cols-2 gap-4">
             <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800">

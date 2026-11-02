@@ -125,9 +125,17 @@ export default function ChartCard({
   };
 
   return (
-    <div className={`bg-[#121826] border border-[#1e273d] rounded-2xl p-4 flex flex-col justify-between shadow-xl backdrop-blur relative ${
-      isFullScreen ? 'fixed inset-4 z-50 overflow-auto' : ''
-    }`}>
+    <>
+      {isFullScreen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/75 backdrop-blur-sm cursor-pointer"
+          onClick={() => setIsFullScreen(false)}
+          title="Click backdrop to exit fullscreen"
+        />
+      )}
+      <div className={`bg-[#121826] border border-[#1e273d] rounded-2xl p-4 flex flex-col justify-between shadow-xl backdrop-blur relative ${
+        isFullScreen ? 'fixed inset-4 z-50 overflow-auto bg-[#0e1320] shadow-2xl ring-1 ring-sky-500/30' : ''
+      }`}>
       <div>
         {/* Card Header & Controls */}
         <div className="flex flex-wrap items-center justify-between pb-3 border-b border-[#1b2337] gap-3">
@@ -425,5 +433,6 @@ export default function ChartCard({
         </div>
       </div>
     </div>
+    </>
   );
 }

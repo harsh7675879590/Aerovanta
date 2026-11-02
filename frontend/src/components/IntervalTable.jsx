@@ -177,8 +177,22 @@ export default function IntervalTable({ intervals, targetDate, cutoffPreset, cus
                     {it.abs_error_mw !== null ? it.abs_error_mw.toLocaleString() : '—'}
                   </td>
                   <td className="py-2.5 px-4 text-center">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-950/60 text-emerald-400 border border-emerald-800/40">
-                      Matched
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                      it.status === 'matched' || (!it.status && it.forecast_mw !== null && it.actual_mw !== null)
+                        ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/40'
+                        : it.status === 'missing_forecast' || it.forecast_mw === null
+                        ? 'bg-amber-950/60 text-amber-400 border-amber-700/40'
+                        : it.status === 'missing_actual' || it.actual_mw === null
+                        ? 'bg-rose-950/60 text-rose-400 border-rose-800/40'
+                        : 'bg-slate-800/60 text-slate-400 border-slate-700/40'
+                    }`}>
+                      {it.status === 'matched' || (!it.status && it.forecast_mw !== null && it.actual_mw !== null)
+                        ? 'Matched'
+                        : it.status === 'missing_forecast' || it.forecast_mw === null
+                        ? 'No Forecast'
+                        : it.status === 'missing_actual' || it.actual_mw === null
+                        ? 'No Actual'
+                        : it.status || 'Matched'}
                     </span>
                   </td>
                   <td className="py-2.5 px-4 text-center">

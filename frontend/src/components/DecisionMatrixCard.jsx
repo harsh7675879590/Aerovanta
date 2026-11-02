@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   RotateCcw,
   ChevronLeft,
@@ -18,7 +18,18 @@ export default function DecisionMatrixCard({
   onSelectInterval
 }) {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const datePickerRef = useRef(null);
   const dayInt = parseInt(selectedDate.split('-')[2], 10);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target)) {
+        setIsDatePickerOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Available days window around current selection
   const days = [
@@ -123,7 +134,7 @@ export default function DecisionMatrixCard({
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <div className="relative">
+            <div className="relative" ref={datePickerRef}>
               <button
                 onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
                 className="flex items-center gap-1.5 text-xs font-mono font-bold text-slate-200 hover:text-pink-400 transition-colors cursor-pointer px-1 py-0.5 rounded hover:bg-[#182033]"
