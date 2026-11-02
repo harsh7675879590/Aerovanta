@@ -161,9 +161,9 @@ In historical accuracy auditing, any algorithm that selects a forecast vintage p
 
 AEROVANTA enforces the following mathematical invariant across all 48 settlement periods:
 
-$$\text{Eligible Vintages}(T, D) = \left\{ V \in \text{WINDFOR} \;\middle|\; V.\text{start\_time} = T \;\land\; V.\text{publish\_time} \le D \right\}$$
+$$\text{Eligible Vintages}(T, D) = \{ V \in \text{WINDFOR} \mid V.\mathrm{startTime} = T \land V.\mathrm{publishTime} \le D \}$$
 
-$$\text{Selected Forecast}(T, D) = \arg\max_{V \in \text{Eligible Vintages}(T, D)} \left( V.\text{publish\_time} \right)$$
+$$\text{Selected Forecast}(T, D) = \arg\max_{V \in \text{Eligible Vintages}(T, D)} ( V.\mathrm{publishTime} )$$
 
 Where:
 - $T$ is the settlement period start timestamp (e.g., `2026-01-10T14:00:00Z`).
@@ -174,8 +174,8 @@ Where:
 |---|---|---|---|
 | `day_ahead_11am` | **Day-Ahead Standard** | `11:00:00Z` on Day $D-1$ | Official EPEX SPOT / Nord Pool GB Day-Ahead auction gate. |
 | `day_ahead_5pm` | **Evening Re-nomination** | `17:00:00Z` on Day $D-1$ | Intra-utility trade rebalancing and interconnector nominations. |
-| `intraday_4h` | **Intraday Rolling (T-4h)** | $\text{start\_time} - 4\text{ hours}$ | Rolling horizon for near-term physical positioning adjustments. |
-| `intraday_1h` | **Near-Gate (T-1h)** | $\text{start\_time} - 1\text{ hour}$ | Physical gate closure prior to Balancing Mechanism submission. |
+| `intraday_4h` | **Intraday Rolling (T-4h)** | `start_time - 4 hours` | Rolling horizon for near-term physical positioning adjustments. |
+| `intraday_1h` | **Near-Gate (T-1h)** | `start_time - 1 hour` | Physical gate closure prior to Balancing Mechanism submission. |
 | *custom* | **Arbitrary User Cutoff** | Custom ISO 8601 string | Ad-hoc testing for custom trading strategies and lookaheads. |
 
 ### Temporal Resolution Mapping

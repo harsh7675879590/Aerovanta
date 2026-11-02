@@ -208,6 +208,7 @@ export default function App() {
                   onSelectInterval={setSelectedInterval}
                   selectedVariable={selectedVariable}
                   selectedZoneTitle={getZoneTitle()}
+                  selectedZone={selectedZone}
                 />
               </div>
 

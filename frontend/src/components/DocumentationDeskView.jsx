@@ -70,14 +70,14 @@ export default function DocumentationDeskView({ onNavigate }) {
               <span>Mathematical Anti-Leakage Guarantee</span>
             </h3>
             <p>
-              In wholesale energy procurement, decision makers must never be scored against forecasts published after the decision was made. For any delivery interval $T$ and cutoff timestamp $D$:
+              In wholesale energy procurement, decision makers must never be scored against forecasts published after the decision was made. For any delivery interval T and cutoff timestamp D:
             </p>
             <div className="p-3 bg-[#0a0e18] rounded-xl border border-[#1b2338] font-mono text-xs text-sky-300">
-              Eligible Vintages(T, D) = &#123; V &isin; WINDFOR | V.startTime = T &and; V.publishTime &le; D &#125;<br/>
+              Eligible Vintages(T, D) = {'{'} V ∈ WINDFOR | V.startTime = T ∧ V.publishTime ≤ D {'}'}<br/>
               Selected Forecast(T, D) = argmax_V(V.publishTime)
             </div>
             <p>
-              Forecasts published at $D + 1\text{ minute}$ or during the delivery day are strictly excluded from the Day-Ahead score, even if they have lower error.
+              Forecasts published at D + 1 minute or during the delivery day are strictly excluded from the Day-Ahead score, even if they have lower error.
             </p>
           </div>
         )}
@@ -105,10 +105,10 @@ export default function DocumentationDeskView({ onNavigate }) {
               <span>Power (MW) vs Delivered Energy (MWh)</span>
             </h3>
             <p>
-              In the UK National Grid transmission system, settlement periods are exactly 30 minutes ($0.5\text{ h}$).
+              In the UK National Grid transmission system, settlement periods are exactly 30 minutes (0.5 hours).
             </p>
             <div className="p-3 bg-[#0a0e18] rounded-xl border border-[#1b2338] font-mono text-xs text-emerald-300">
-              Energy (MWh) = Average Power (MW) &times; 0.5 hours
+              Energy (MWh) = Average Power (MW) × 0.5 hours
             </div>
             <p>
               AEROVANTA explicitly differentiates instantaneous capacity in MW from total cumulative electrical energy in MWh / GWh.

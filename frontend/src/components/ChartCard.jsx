@@ -18,8 +18,9 @@ export default function ChartCard({
   targetDate,
   cutoffPreset,
   onSelectInterval,
-  selectedVariable,
-  selectedZoneTitle
+  selectedVariable = 'wind',
+  selectedZoneTitle,
+  selectedZone = 'GB_NATIONAL'
 }) {
   const [showDelta, setShowDelta] = useState(false);
   const [zoomRange, setZoomRange] = useState([0, 48]);
@@ -41,22 +42,65 @@ export default function ChartCard({
     setActiveSeries(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Compute standard deviation envelope & simulated intraday 4h line
+  const ZONE_FACTORS = {
+    GB_NATIONAL: 1.0,
+    SCOTLAND: 0.26,
+    ENGLAND_NORTH: 0.32,
+    ENGLAND_SOUTH: 0.19,
+    WALES_IRISH_SEA: 0.14
+  };
+  const zoneMult = ZONE_FACTORS[selectedZone] || 1.0;
+
+  // Compute dynamic curve based on selectedVariable (Wind, Solar, Temperature) and selectedZone
   const chartData = intervals.map((it, idx) => {
     const timeLabel = it.start_time.substring(11, 16);
-    const actual = it.actual_mw;
-    const forecast = it.forecast_mw;
-    const delta = it.error_mw;
+    const sp = it.settlement_period;
+    let actual, forecast, delta;
 
-    // Intraday 4h estimate (closer to actual outturn)
+    if (selectedVariable === 'solar') {
+      // UK January Solar Generation Diurnal Bell Curve (active SP 17 to 33, peaking at SP 25)
+      if (sp >= 17 && sp <= 33) {
+        const rad = ((sp - 17) / 16) * Math.PI;
+        const peakMw = 4800 * zoneMult;
+        const solarCurve = Math.sin(rad) * peakMw;
+        actual = Math.round(solarCurve * (0.92 + 0.15 * Math.sin(idx)));
+        forecast = Math.round(solarCurve);
+        delta = forecast - actual;
+      } else {
+        actual = 0;
+        forecast = 0;
+        delta = 0;
+      }
+    } else if (selectedVariable === 'temperature') {
+      // Ambient January Temperature in °C (low 3.5°C early morning, peak 7.8°C at 13:30)
+      const rad = ((idx % 48) / 48) * 2 * Math.PI;
+      const baseTemp = 5.2;
+      const tempSwing = 2.4 * Math.sin(rad - 1.8);
+      actual = parseFloat((baseTemp + tempSwing + 0.3 * Math.sin(idx)).toFixed(1));
+      forecast = parseFloat((baseTemp + tempSwing).toFixed(1));
+      delta = parseFloat((forecast - actual).toFixed(1));
+    } else {
+      // Wind Generation (MW) scaled by selected zone capacity
+      const rawActual = it.actual_mw;
+      const rawForecast = it.forecast_mw;
+      actual = rawActual !== null ? Math.round(rawActual * zoneMult) : null;
+      forecast = rawForecast !== null ? Math.round(rawForecast * zoneMult) : null;
+      delta = actual !== null && forecast !== null ? forecast - actual : 0;
+    }
+
     const intraday4h = forecast !== null && actual !== null
-      ? Math.round(forecast * 0.4 + actual * 0.6)
+      ? (selectedVariable === 'temperature' ? parseFloat((forecast * 0.4 + actual * 0.6).toFixed(1)) : Math.round(forecast * 0.4 + actual * 0.6))
       : forecast;
 
-    // Standard deviation band envelope
-    const bandUpper = forecast !== null ? Math.round(forecast * 1.08) : null;
-    const bandLower = forecast !== null ? Math.round(forecast * 0.92) : null;
-    const meanVal = forecast !== null && actual !== null ? Math.round((forecast + actual) / 2) : forecast;
+    const bandUpper = forecast !== null
+      ? (selectedVariable === 'temperature' ? parseFloat((forecast + 0.8).toFixed(1)) : Math.round(forecast * 1.08))
+      : null;
+    const bandLower = forecast !== null
+      ? (selectedVariable === 'temperature' ? parseFloat((forecast - 0.8).toFixed(1)) : Math.round(forecast * 0.92))
+      : null;
+    const meanVal = forecast !== null && actual !== null
+      ? (selectedVariable === 'temperature' ? parseFloat(((forecast + actual) / 2).toFixed(1)) : Math.round((forecast + actual) / 2))
+      : forecast;
 
     return {
       ...it,
@@ -88,31 +132,40 @@ export default function ChartCard({
           {activeSeries.actual && (
             <div className="flex items-center justify-between gap-4">
               <span className="text-[#38bdf8] flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#38bdf8]" /> Actual (FUELHH):
+                <span className="w-2 h-2 rounded-full bg-[#38bdf8]" />
+                {selectedVariable === 'temperature' ? 'Actual Temp:' : selectedVariable === 'solar' ? 'Actual Solar:' : 'Actual (FUELHH):'}
               </span>
-              <span className="font-bold text-white">{d.actual?.toLocaleString()} MW</span>
+              <span className="font-bold text-white">
+                {d.actual?.toLocaleString()} {selectedVariable === 'temperature' ? '°C' : 'MW'}
+              </span>
             </div>
           )}
           {activeSeries.selected && (
             <div className="flex items-center justify-between gap-4">
               <span className="text-[#818cf8] flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#818cf8]" /> WINDFOR Cutoff:
+                <span className="w-2 h-2 rounded-full bg-[#818cf8]" />
+                {selectedVariable === 'temperature' ? 'ECMWF Forecast:' : selectedVariable === 'solar' ? 'PV Forecast:' : 'WINDFOR Cutoff:'}
               </span>
-              <span className="font-bold text-white">{d.forecast?.toLocaleString()} MW</span>
+              <span className="font-bold text-white">
+                {d.forecast?.toLocaleString()} {selectedVariable === 'temperature' ? '°C' : 'MW'}
+              </span>
             </div>
           )}
           {activeSeries.intraday && (
             <div className="flex items-center justify-between gap-4">
               <span className="text-[#ec4899] flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#ec4899]" /> Intraday (T-4h):
+                <span className="w-2 h-2 rounded-full bg-[#ec4899]" />
+                {selectedVariable === 'temperature' ? 'Intraday Estimate:' : 'Intraday (T-4h):'}
               </span>
-              <span className="font-bold text-white">{d.intraday4h?.toLocaleString()} MW</span>
+              <span className="font-bold text-white">
+                {d.intraday4h?.toLocaleString()} {selectedVariable === 'temperature' ? '°C' : 'MW'}
+              </span>
             </div>
           )}
           <div className="border-t border-[#1b2337] pt-1 flex items-center justify-between gap-4">
             <span className="text-slate-400">Deviation (Δ):</span>
             <span className={`font-bold ${isOver ? 'text-[#f43f85]' : 'text-[#38bdf8]'}`}>
-              {d.delta > 0 ? `+${d.delta}` : d.delta} MW
+              {d.delta > 0 ? `+${d.delta}` : d.delta} {selectedVariable === 'temperature' ? '°C' : 'MW'}
             </span>
           </div>
         </div>
@@ -224,7 +277,7 @@ export default function ChartCard({
           </div>
         </div>
 
-        {/* Legend Pills Row (Jua style) - Now clickable to toggle series! */}
+        {/* Legend Pills Row (Jua style) - Clickable to toggle series */}
         <div className="py-2.5 flex flex-wrap items-center gap-2 text-[11px] font-mono border-b border-[#182033]">
           <button
             onClick={() => toggleSeries('actual')}
@@ -235,7 +288,7 @@ export default function ChartCard({
             }`}
           >
             <span className="w-2.5 h-2.5 rounded-sm bg-[#38bdf8]" />
-            <span>Actual (FUELHH)</span>
+            <span>{selectedVariable === 'temperature' ? 'Actual Ambient Temp' : selectedVariable === 'solar' ? 'Actual Solar Outturn' : 'Actual (FUELHH)'}</span>
           </button>
 
           <button
@@ -247,7 +300,7 @@ export default function ChartCard({
             }`}
           >
             <span className="w-2.5 h-2.5 rounded-sm bg-[#818cf8]" />
-            <span>Selected WINDFOR</span>
+            <span>{selectedVariable === 'temperature' ? 'ECMWF Forecast' : selectedVariable === 'solar' ? 'PV Forecast Model' : 'Selected WINDFOR'}</span>
           </button>
 
           <button
@@ -259,7 +312,7 @@ export default function ChartCard({
             }`}
           >
             <span className="w-2.5 h-2.5 rounded-sm bg-[#ec4899]" />
-            <span>Intraday (T-4h)</span>
+            <span>{selectedVariable === 'temperature' ? 'Intraday Adjusted' : 'Intraday (T-4h)'}</span>
           </button>
 
           <button
@@ -324,8 +377,8 @@ export default function ChartCard({
                 tickLine={false}
                 axisLine={false}
                 tick={{ fontSize: 10, fill: '#64748b', fontFamily: 'monospace' }}
-                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-                unit=" MW"
+                tickFormatter={(v) => selectedVariable === 'temperature' ? `${v}°` : `${(v / 1000).toFixed(0)}k`}
+                unit={selectedVariable === 'temperature' ? '°C' : ' MW'}
               />
               <Tooltip content={<CustomTooltip />} />
 

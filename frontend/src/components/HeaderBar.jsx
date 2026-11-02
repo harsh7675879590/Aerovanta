@@ -93,6 +93,17 @@ export default function HeaderBar({
           </button>
 
           <button
+            onClick={() => onSelectTab('documentation')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+              activeTab === 'documentation'
+                ? 'bg-[#182033] text-white border border-[#2a3754]'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-[#131929]'
+            }`}
+          >
+            Documentation
+          </button>
+
+          <button
             onClick={() => onSelectTab('new-analytics')}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
               activeTab === 'new-analytics'

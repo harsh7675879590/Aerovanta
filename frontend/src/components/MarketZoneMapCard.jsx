@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Minus, Info, Wind, Layers, ChevronRight } from 'lucide-react';
+import { Plus, Minus, Wind } from 'lucide-react';
 
 export default function MarketZoneMapCard({ onSelectZone, selectedZoneId }) {
   const [activeTab, setActiveTab] = useState('map');
@@ -8,11 +8,37 @@ export default function MarketZoneMapCard({ onSelectZone, selectedZoneId }) {
 
   const zones = [
     {
-      id: 'DOGGER_HORNSEA',
-      name: 'Dogger Bank & Hornsea (North Sea)',
-      capacity: '8.4 GW',
-      actualMw: 3240,
-      forecastMw: 3410,
+      id: 'GB_NATIONAL',
+      name: 'United Kingdom (National Total)',
+      capacity: '30.2 GW',
+      actualMw: 11840,
+      forecastMw: 11420,
+      status: 'All BMRS Grid Supply Points',
+      share: '100%',
+      windSpeed: '11.8 m/s',
+      cx: 175,
+      cy: 115,
+      color: '#38bdf8'
+    },
+    {
+      id: 'SCOTLAND',
+      name: 'Scotland (Moray & Seagreen Offshore)',
+      capacity: '7.8 GW',
+      actualMw: 3080,
+      forecastMw: 2970,
+      status: 'High Wind Velocity (Force 7)',
+      share: '26%',
+      windSpeed: '14.1 m/s',
+      cx: 165,
+      cy: 55,
+      color: '#f43f85'
+    },
+    {
+      id: 'ENGLAND_NORTH',
+      name: 'England North (Dogger Bank & Hornsea)',
+      capacity: '9.6 GW',
+      actualMw: 3790,
+      forecastMw: 3650,
       status: 'Optimal Wind Flow (Force 6)',
       share: '32%',
       windSpeed: '12.4 m/s',
@@ -21,63 +47,41 @@ export default function MarketZoneMapCard({ onSelectZone, selectedZoneId }) {
       color: '#ec4899'
     },
     {
-      id: 'MORAY_SEAGREEN',
-      name: 'Moray & Seagreen (Scotland Offshore)',
-      capacity: '5.2 GW',
-      actualMw: 2680,
-      forecastMw: 2590,
-      status: 'High Wind Velocity (Force 7)',
-      share: '24%',
-      windSpeed: '14.1 m/s',
-      cx: 170,
-      cy: 55,
-      color: '#f43f85'
-    },
-    {
-      id: 'EAST_ANGLIA',
-      name: 'East Anglia Arrays (Southern North Sea)',
-      capacity: '4.8 GW',
-      actualMw: 1850,
-      forecastMw: 1920,
+      id: 'ENGLAND_SOUTH',
+      name: 'England South & East Anglia Arrays',
+      capacity: '5.8 GW',
+      actualMw: 2250,
+      forecastMw: 2170,
       status: 'Steady Generation',
-      share: '18%',
+      share: '19%',
       windSpeed: '9.8 m/s',
       cx: 210,
       cy: 160,
       color: '#38bdf8'
     },
     {
-      id: 'IRISH_SEA',
-      name: 'Irish Sea & Walney Extension',
-      capacity: '3.6 GW',
-      actualMw: 1420,
-      forecastMw: 1380,
+      id: 'WALES_IRISH_SEA',
+      name: 'Wales & Irish Sea (Walney/Celtic)',
+      capacity: '4.2 GW',
+      actualMw: 1650,
+      forecastMw: 1600,
       status: 'Moderate Swell',
       share: '14%',
       windSpeed: '8.6 m/s',
       cx: 115,
       cy: 110,
       color: '#0284c7'
-    },
-    {
-      id: 'SCOTTISH_ONSHORE',
-      name: 'GB Onshore Scottish & Welsh Hubs',
-      capacity: '8.2 GW',
-      actualMw: 2119,
-      forecastMw: 2242,
-      status: 'Active Transmission Dispatch',
-      share: '12%',
-      windSpeed: '10.2 m/s',
-      cx: 145,
-      cy: 75,
-      color: '#a855f7'
-    },
+    }
   ];
 
   const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.25, 2.0));
   const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.25, 0.75));
 
-  const activeZoneObj = zones.find(z => z.id === selectedZoneId) || null;
+  const activeZoneObj = zones.find(z => z.id === selectedZoneId) || zones[0];
+
+  const isScotlandActive = selectedZoneId === 'SCOTLAND' || selectedZoneId === 'GB_NATIONAL';
+  const isEnglandActive = selectedZoneId === 'ENGLAND_NORTH' || selectedZoneId === 'ENGLAND_SOUTH' || selectedZoneId === 'GB_NATIONAL';
+  const isWalesActive = selectedZoneId === 'WALES_IRISH_SEA' || selectedZoneId === 'GB_NATIONAL';
 
   return (
     <div className="bg-[#121826] border border-[#1e273d] rounded-2xl p-4 flex flex-col justify-between shadow-xl backdrop-blur">
@@ -89,7 +93,7 @@ export default function MarketZoneMapCard({ onSelectZone, selectedZoneId }) {
               Market Zones (45 zones)
             </h2>
             <span className="text-[11px] text-[#f43f85] font-mono font-bold flex items-center gap-1">
-              • {activeZoneObj ? activeZoneObj.name.split('(')[0] : 'GB National'} selected
+              • {activeZoneObj.name.split('(')[0]} selected
             </span>
           </div>
           <button
@@ -128,7 +132,7 @@ export default function MarketZoneMapCard({ onSelectZone, selectedZoneId }) {
 
           <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
             <Wind className="w-3 h-3 text-cyan-400" />
-            <span>30.2 GW Installed Capacity</span>
+            <span>{activeZoneObj.capacity} Selected Capacity</span>
           </div>
         </div>
 
@@ -147,14 +151,6 @@ export default function MarketZoneMapCard({ onSelectZone, selectedZoneId }) {
                       <line x1="0" y1="0" x2="20" y2="0" stroke="#141c2e" strokeWidth="0.5" />
                       <line x1="0" y1="0" x2="0" y2="20" stroke="#141c2e" strokeWidth="0.5" />
                     </pattern>
-                    <radialGradient id="hubGlow" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#ec4899" stopOpacity="0.8" />
-                      <stop offset="100%" stopColor="#ec4899" stopOpacity="0" />
-                    </radialGradient>
-                    <radialGradient id="hubCyan" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.8" />
-                      <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
-                    </radialGradient>
                   </defs>
 
                   <rect width="320" height="240" fill="url(#grid)" />
@@ -166,27 +162,28 @@ export default function MarketZoneMapCard({ onSelectZone, selectedZoneId }) {
                   {/* Ireland Outline */}
                   <path d="M 70 100 Q 85 90 95 110 Q 100 130 90 150 Q 75 160 65 145 Q 60 120 70 100 Z" fill="#151d30" stroke="#22304d" strokeWidth="1" />
 
-                  {/* Scotland */}
+                  {/* Scotland (clickable & dynamically highlighted) */}
                   <path
                     d="M 140 30 Q 155 20 165 35 Q 170 50 160 65 Q 175 75 165 95 Q 150 100 140 105 Q 125 90 130 65 Q 120 45 140 30 Z"
-                    fill="#1f243b"
-                    stroke="#e83a78"
-                    strokeWidth="1.5"
-                    className="hover:fill-[#2d1b33] cursor-pointer transition-colors"
+                    fill={selectedZoneId === 'SCOTLAND' ? '#be185d' : isScotlandActive ? '#2d1b38' : '#151d30'}
+                    stroke={selectedZoneId === 'SCOTLAND' ? '#f43f85' : '#e83a78'}
+                    strokeWidth={selectedZoneId === 'SCOTLAND' ? 2.5 : 1.2}
+                    className="hover:fill-[#4a1d40] cursor-pointer transition-all duration-300"
                     onClick={() => onSelectZone && onSelectZone('SCOTLAND')}
                   />
-                  {/* England & Wales */}
+
+                  {/* England & Wales (clickable & dynamically highlighted) */}
                   <path
                     d="M 140 105 Q 165 95 180 115 Q 195 130 205 145 Q 200 170 170 180 Q 140 185 130 170 Q 115 155 125 135 Q 130 120 140 105 Z"
-                    fill="#1f243b"
-                    stroke="#e83a78"
-                    strokeWidth="1.5"
-                    className="hover:fill-[#2d1b33] cursor-pointer transition-colors"
-                    onClick={() => onSelectZone && onSelectZone('ENGLAND_NORTH')}
+                    fill={isEnglandActive ? (selectedZoneId === 'ENGLAND_NORTH' ? '#831843' : selectedZoneId === 'ENGLAND_SOUTH' ? '#1e3a5f' : '#2d1b38') : '#151d30'}
+                    stroke={isEnglandActive ? (selectedZoneId === 'ENGLAND_NORTH' ? '#f43f85' : '#38bdf8') : '#475569'}
+                    strokeWidth={selectedZoneId === 'ENGLAND_NORTH' || selectedZoneId === 'ENGLAND_SOUTH' ? 2.5 : 1.2}
+                    className="hover:fill-[#2d1b33] cursor-pointer transition-all duration-300"
+                    onClick={() => onSelectZone && onSelectZone(selectedZoneId === 'ENGLAND_NORTH' ? 'ENGLAND_SOUTH' : 'ENGLAND_NORTH')}
                   />
 
                   {/* Interactive Offshore Wind Hubs */}
-                  {zones.map((zone) => {
+                  {zones.filter(z => z.id !== 'GB_NATIONAL').map((zone) => {
                     const isHovered = hoveredHub?.id === zone.id;
                     const isSelected = selectedZoneId === zone.id;
 
@@ -201,15 +198,15 @@ export default function MarketZoneMapCard({ onSelectZone, selectedZoneId }) {
                         <circle
                           cx={zone.cx}
                           cy={zone.cy}
-                          r={isHovered || isSelected ? 16 : 10}
+                          r={isSelected ? 18 : isHovered ? 14 : 9}
                           fill={zone.color}
-                          fillOpacity={isHovered || isSelected ? 0.4 : 0.2}
-                          className="transition-all duration-200"
+                          fillOpacity={isSelected ? 0.45 : isHovered ? 0.3 : 0.15}
+                          className="transition-all duration-300"
                         />
                         <circle
                           cx={zone.cx}
                           cy={zone.cy}
-                          r={isHovered || isSelected ? 4 : 2.5}
+                          r={isSelected ? 5 : isHovered ? 4 : 2.5}
                           fill={zone.color}
                         />
                       </g>
@@ -217,9 +214,41 @@ export default function MarketZoneMapCard({ onSelectZone, selectedZoneId }) {
                   })}
 
                   {/* Map Text Labels */}
-                  <text x="145" y="65" fill="#e2e8f0" fontSize="9" fontFamily="sans-serif" fontWeight="bold">Scotland</text>
-                  <text x="155" y="145" fill="#e2e8f0" fontSize="9" fontFamily="sans-serif" fontWeight="bold">England</text>
-                  <text x="110" y="140" fill="#94a3b8" fontSize="7" fontFamily="sans-serif">Wales</text>
+                  <text
+                    x="145"
+                    y="65"
+                    fill={selectedZoneId === 'SCOTLAND' ? '#f43f85' : '#e2e8f0'}
+                    fontSize="9"
+                    fontFamily="sans-serif"
+                    fontWeight="bold"
+                    className="cursor-pointer"
+                    onClick={() => onSelectZone && onSelectZone('SCOTLAND')}
+                  >
+                    Scotland
+                  </text>
+                  <text
+                    x="155"
+                    y="145"
+                    fill={isEnglandActive && selectedZoneId !== 'GB_NATIONAL' ? '#38bdf8' : '#e2e8f0'}
+                    fontSize="9"
+                    fontFamily="sans-serif"
+                    fontWeight="bold"
+                    className="cursor-pointer"
+                    onClick={() => onSelectZone && onSelectZone('ENGLAND_NORTH')}
+                  >
+                    England
+                  </text>
+                  <text
+                    x="110"
+                    y="140"
+                    fill={selectedZoneId === 'WALES_IRISH_SEA' ? '#38bdf8' : '#94a3b8'}
+                    fontSize="7"
+                    fontFamily="sans-serif"
+                    className="cursor-pointer"
+                    onClick={() => onSelectZone && onSelectZone('WALES_IRISH_SEA')}
+                  >
+                    Wales
+                  </text>
                   <text x="80" y="125" fill="#64748b" fontSize="7" fontFamily="sans-serif">N. Ireland</text>
                   <text x="240" y="50" fill="#38bdf8" fontSize="8" fontFamily="monospace" opacity="0.8">North Sea</text>
                 </svg>
@@ -261,8 +290,8 @@ export default function MarketZoneMapCard({ onSelectZone, selectedZoneId }) {
 
               {/* Bottom Map Legend */}
               <div className="absolute left-3 bottom-2 flex items-center gap-2 text-[10px] font-mono text-slate-400 bg-[#0c101b]/90 px-2 py-0.5 rounded border border-[#1b2337]">
-                <span className="w-2 h-2 rounded-full bg-[#f43f85]" />
-                <span>Click clusters to filter regional capacity</span>
+                <span className="w-2 h-2 rounded-full bg-[#f43f85] animate-pulse" />
+                <span>Click regions/hubs to filter regional dispatch</span>
               </div>
             </div>
           ) : (
