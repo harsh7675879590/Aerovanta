@@ -196,6 +196,9 @@ export default function App() {
                   onCutoffChange={setCutoffPreset}
                   summary={evaluation?.summary}
                   onSelectInterval={setSelectedInterval}
+                  selectedVariable={selectedVariable}
+                  selectedZone={selectedZone}
+                  selectedWeighting={selectedWeighting}
                 />
               </div>
 
@@ -209,6 +212,7 @@ export default function App() {
                   selectedVariable={selectedVariable}
                   selectedZoneTitle={getZoneTitle()}
                   selectedZone={selectedZone}
+                  selectedWeighting={selectedWeighting}
                 />
               </div>
 
@@ -218,6 +222,8 @@ export default function App() {
                   <MarketZoneMapCard
                     onSelectZone={setSelectedZone}
                     selectedZoneId={selectedZone}
+                    selectedWeighting={selectedWeighting}
+                    selectedVariable={selectedVariable}
                   />
                 </div>
               )}
@@ -230,6 +236,9 @@ export default function App() {
                     selectedDate={selectedDate}
                     onSelectInterval={setSelectedInterval}
                     onSelectDate={setSelectedDate}
+                    selectedVariable={selectedVariable}
+                    selectedZone={selectedZone}
+                    selectedWeighting={selectedWeighting}
                   />
                 </div>
               )}

@@ -20,7 +20,8 @@ export default function ChartCard({
   onSelectInterval,
   selectedVariable = 'wind',
   selectedZoneTitle,
-  selectedZone = 'GB_NATIONAL'
+  selectedZone = 'GB_NATIONAL',
+  selectedWeighting = 'capacity_wind'
 }) {
   const [showDelta, setShowDelta] = useState(false);
   const [zoomRange, setZoomRange] = useState([0, 48]);
@@ -51,7 +52,33 @@ export default function ChartCard({
   };
   const zoneMult = ZONE_FACTORS[selectedZone] || 1.0;
 
-  // Compute dynamic curve based on selectedVariable (Wind, Solar, Temperature) and selectedZone
+  // Weighting mode calculations
+  const isCurtailment = selectedWeighting === 'curtailment_adj';
+  const isUnweighted = selectedWeighting === 'unweighted';
+
+  // Regional temperature baselines & diurnal swings in °C
+  const ZONE_TEMPS = {
+    GB_NATIONAL: { base: 5.2, swing: 2.4 },
+    SCOTLAND: { base: 2.2, swing: 1.8 }, // Scotland cold front
+    ENGLAND_NORTH: { base: 4.4, swing: 2.1 },
+    ENGLAND_SOUTH: { base: 7.4, swing: 2.8 }, // Mild southern Atlantic air
+    WALES_IRISH_SEA: { base: 5.8, swing: 2.0 }
+  };
+  const zoneTemp = ZONE_TEMPS[selectedZone] || ZONE_TEMPS.GB_NATIONAL;
+  const tempWeightShift = isCurtailment ? -0.4 : isUnweighted ? 0.3 : 0.0;
+  const effectiveBaseTemp = zoneTemp.base + tempWeightShift;
+
+  // Regional solar peak capacities in MW
+  const ZONE_SOLAR_PEAKS = {
+    GB_NATIONAL: 4800,
+    ENGLAND_SOUTH: 1850,
+    ENGLAND_NORTH: 1240,
+    WALES_IRISH_SEA: 820,
+    SCOTLAND: 410
+  };
+  const baseSolarPeak = (ZONE_SOLAR_PEAKS[selectedZone] || 4800) * (isCurtailment ? 0.90 : isUnweighted ? 1.05 : 1.0);
+
+  // Compute dynamic curve based on selectedVariable, selectedZone, and selectedWeighting
   const chartData = intervals.map((it, idx) => {
     const timeLabel = it.start_time.substring(11, 16);
     const sp = it.settlement_period;
@@ -61,8 +88,7 @@ export default function ChartCard({
       // UK January Solar Generation Diurnal Bell Curve (active SP 17 to 33, peaking at SP 25)
       if (sp >= 17 && sp <= 33) {
         const rad = ((sp - 17) / 16) * Math.PI;
-        const peakMw = 4800 * zoneMult;
-        const solarCurve = Math.sin(rad) * peakMw;
+        const solarCurve = Math.sin(rad) * baseSolarPeak;
         actual = Math.round(solarCurve * (0.92 + 0.15 * Math.sin(idx)));
         forecast = Math.round(solarCurve);
         delta = forecast - actual;
@@ -72,19 +98,33 @@ export default function ChartCard({
         delta = 0;
       }
     } else if (selectedVariable === 'temperature') {
-      // Ambient January Temperature in °C (low 3.5°C early morning, peak 7.8°C at 13:30)
+      // Ambient January Temperature in °C
       const rad = ((idx % 48) / 48) * 2 * Math.PI;
-      const baseTemp = 5.2;
-      const tempSwing = 2.4 * Math.sin(rad - 1.8);
-      actual = parseFloat((baseTemp + tempSwing + 0.3 * Math.sin(idx)).toFixed(1));
-      forecast = parseFloat((baseTemp + tempSwing).toFixed(1));
+      const tempSwing = zoneTemp.swing * Math.sin(rad - 1.8);
+      actual = parseFloat((effectiveBaseTemp + tempSwing + 0.3 * Math.sin(idx)).toFixed(1));
+      forecast = parseFloat((effectiveBaseTemp + tempSwing).toFixed(1));
       delta = parseFloat((forecast - actual).toFixed(1));
     } else {
-      // Wind Generation (MW) scaled by selected zone capacity
+      // Wind Generation (MW) scaled by selected zone capacity & weighting
       const rawActual = it.actual_mw;
       const rawForecast = it.forecast_mw;
-      actual = rawActual !== null ? Math.round(rawActual * zoneMult) : null;
-      forecast = rawForecast !== null ? Math.round(rawForecast * zoneMult) : null;
+      
+      let scaledActual = rawActual !== null ? rawActual * zoneMult * (isUnweighted ? 1.06 : 1.0) : null;
+      let scaledForecast = rawForecast !== null ? rawForecast * zoneMult * (isUnweighted ? 1.06 : 1.0) : null;
+      
+      // If curtailment adjusted and Scotland or GB national, factor the B6 Anglo-Scottish constraint
+      if (isCurtailment) {
+        if (selectedZone === 'SCOTLAND') {
+          scaledActual = scaledActual !== null ? Math.min(scaledActual * 0.82, 6400) : null;
+          scaledForecast = scaledForecast !== null ? Math.min(scaledForecast * 0.82, 6400) : null;
+        } else if (selectedZone === 'GB_NATIONAL') {
+          scaledActual = scaledActual !== null ? Math.max(0, scaledActual - 1400) : null;
+          scaledForecast = scaledForecast !== null ? Math.max(0, scaledForecast - 1400) : null;
+        }
+      }
+      
+      actual = scaledActual !== null ? Math.round(scaledActual) : null;
+      forecast = scaledForecast !== null ? Math.round(scaledForecast) : null;
       delta = actual !== null && forecast !== null ? forecast - actual : 0;
     }
 
@@ -377,8 +417,7 @@ export default function ChartCard({
                 tickLine={false}
                 axisLine={false}
                 tick={{ fontSize: 10, fill: '#64748b', fontFamily: 'monospace' }}
-                tickFormatter={(v) => selectedVariable === 'temperature' ? `${v}°` : `${(v / 1000).toFixed(0)}k`}
-                unit={selectedVariable === 'temperature' ? '°C' : ' MW'}
+                tickFormatter={(v) => selectedVariable === 'temperature' ? `${v}°C` : `${(v / 1000).toFixed(0)}k MW`}
               />
               <Tooltip content={<CustomTooltip />} />
 
@@ -387,7 +426,7 @@ export default function ChartCard({
                 <Line
                   type="monotone"
                   dataKey="delta"
-                  name="Error (MW)"
+                  name={selectedVariable === 'temperature' ? 'Error (°C)' : 'Error (MW)'}
                   stroke="#f43f85"
                   strokeWidth={2.5}
                   dot={{ r: 2, fill: '#f43f85' }}

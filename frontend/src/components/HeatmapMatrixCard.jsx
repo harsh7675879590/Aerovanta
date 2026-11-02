@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
 
-export default function HeatmapMatrixCard({ intervals, selectedDate, onSelectInterval, onSelectDate }) {
+export default function HeatmapMatrixCard({
+  intervals,
+  selectedDate,
+  onSelectInterval,
+  onSelectDate,
+  selectedVariable = 'wind',
+  selectedZone = 'GB_NATIONAL',
+  selectedWeighting = 'capacity_wind'
+}) {
   const [activeTab, setActiveTab] = useState('deviations');
   const [aggregation, setAggregation] = useState('daily');
 
@@ -122,6 +130,25 @@ export default function HeatmapMatrixCard({ intervals, selectedDate, onSelectInt
     }
   };
 
+  const formatCellValue = (cell) => {
+    if (activeTab === 'disagreements') {
+      if (selectedVariable === 'temperature') {
+        const valNum = (parseFloat(cell.val) * 1.5).toFixed(1);
+        return `${valNum}°C`;
+      }
+      return `${cell.val} GW`;
+    }
+    if (selectedVariable === 'temperature') {
+      const tempVal = (parseFloat(cell.val) * 1.8).toFixed(1);
+      return `${tempVal > 0 ? '+' : ''}${tempVal}°C`;
+    }
+    if (selectedVariable === 'solar') {
+      const solarVal = Math.round((cell.mw || 200) * 0.4);
+      return `${solarVal > 0 ? '+' : ''}${solarVal} MW`;
+    }
+    return `${cell.val} GW`;
+  };
+
   const activeRows = activeTab === 'deviations' ? heatmapRows : disagreementRows;
 
   return (
@@ -216,9 +243,9 @@ export default function HeatmapMatrixCard({ intervals, selectedDate, onSelectInt
                           className={`py-1.5 px-2 rounded-lg text-xs transition-transform hover:scale-105 cursor-pointer ${getCellBg(
                             cell
                           )}`}
-                          title={`Variance on Jan ${sampleDays[cIdx]}: ${cell.val} GW (${cell.mw || 0} MW). Click to jump to this day.`}
+                          title={`Variance on Jan ${sampleDays[cIdx]}: ${formatCellValue(cell)}. Click to jump to this day.`}
                         >
-                          {cell.val}
+                          {formatCellValue(cell)}
                         </div>
                       </td>
                     );
@@ -237,15 +264,18 @@ export default function HeatmapMatrixCard({ intervals, selectedDate, onSelectInt
           {activeTab === 'deviations' ? (
             <>
               <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded bg-[#9f1239]" /> Overforecast (System Long)
+                <span className="w-2.5 h-2.5 rounded bg-[#9f1239]" />{' '}
+                {selectedVariable === 'temperature' ? 'Warm Bias (+°C)' : selectedVariable === 'solar' ? 'PV Overestimate (+MW)' : 'Overforecast (System Long)'}
               </span>
               <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded bg-[#1e40af]" /> Underforecast (System Short)
+                <span className="w-2.5 h-2.5 rounded bg-[#1e40af]" />{' '}
+                {selectedVariable === 'temperature' ? 'Cold Bias (-°C)' : selectedVariable === 'solar' ? 'PV Underestimate (-MW)' : 'Underforecast (System Short)'}
               </span>
             </>
           ) : (
             <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded bg-[#7c3aed]" /> Model Spread Divergence (GW)
+              <span className="w-2.5 h-2.5 rounded bg-[#7c3aed]" />{' '}
+              {selectedVariable === 'temperature' ? 'Forecast Spread (°C)' : 'Model Spread Divergence (GW)'}
             </span>
           )}
         </div>
