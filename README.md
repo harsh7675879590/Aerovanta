@@ -20,7 +20,7 @@
 ---
 
 <p align="center">
-  <img src="docs/images/aerovanta-dashboard.jpg" alt="AEROVANTA Power Desk Dashboard" width="100%" />
+  <img src="docs/images/aerovanta-dashboard.png" alt="AEROVANTA Power Desk Dashboard" width="100%" />
 </p>
 <p align="center">
   <em>Figure 1: AEROVANTA Live Desk — Interactive Models & Gate Closures, Multi-Series Generation Curves (Actual FUELHH vs Selected WINDFOR vs Intraday T-4h), Regional Offshore Wind Arrays, and Settlement Variance Heatmap for January 2026.</em>
