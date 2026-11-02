@@ -1,12 +1,32 @@
-# AEROVANTA — GB Wind Generation Forecast Intelligence Platform
+<p align="center">
+  <img src="docs/images/aerovanta-hero-banner.png" alt="AEROVANTA Logo" width="460" />
+</p>
 
-[![Backend Test Suite](https://img.shields.io/badge/pytest-10%20passed-emerald)](backend/tests/)
-[![Python](https://img.shields.io/badge/Python-3.12-blue)](backend/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React-19-61dafb)](frontend/)
-[![Vite](https://img.shields.io/badge/Vite-8-646cff)](frontend/)
-[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-v4-38bdf8)](https://tailwindcss.com)
-[![License](https://img.shields.io/badge/license-MIT-slate)](LICENSE)
+<p align="center">
+  <strong>GB Wind Generation Forecast Intelligence & Day-Ahead Procurement Audit Platform</strong><br>
+  <em>Reconstructing Decision-Time Forecast Accuracy Across the Great Britain Power Grid (January 2026)</em>
+</p>
+
+<p align="center">
+  <a href="#9-automated-verification--test-suite"><img src="https://img.shields.io/badge/pytest-10%20passed-emerald?style=flat-square&logo=pytest" alt="Backend Test Suite" /></a>
+  <a href="#7-getting-started"><img src="https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.12" /></a>
+  <a href="#6-api-specification"><img src="https://img.shields.io/badge/FastAPI-0.115+-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" /></a>
+  <a href="#7-getting-started"><img src="https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react&logoColor=black" alt="React 19" /></a>
+  <a href="#7-getting-started"><img src="https://img.shields.io/badge/Vite-8-646cff?style=flat-square&logo=vite&logoColor=white" alt="Vite 8" /></a>
+  <a href="#7-getting-started"><img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-slate?style=flat-square" alt="License" /></a>
+</p>
+
+---
+
+<p align="center">
+  <img src="docs/images/aerovanta-dashboard.jpg" alt="AEROVANTA Power Desk Dashboard" width="100%" />
+</p>
+<p align="center">
+  <em>Figure 1: AEROVANTA Live Desk — Interactive Models & Gate Closures, Multi-Series Generation Curves (Actual FUELHH vs Selected WINDFOR vs Intraday T-4h), Regional Offshore Wind Arrays, and Settlement Variance Heatmap for January 2026.</em>
+</p>
+
+---
 
 A high-performance quantitative forecasting and procurement audit platform engineered for Great Britain (GB) power market trading and dispatch desks. AEROVANTA ingests, reconciles, and evaluates half-hourly wind generation forecasts against metered physical outturns using official **Elexon BMRS** data feeds across **January 2026**.
 
@@ -54,51 +74,79 @@ Because wind power in Great Britain regularly exceeds 20 GW of instantaneous gen
 
 ## 2. Platform Architecture
 
-AEROVANTA employs a decoupled service-oriented architecture designed for low-latency (<5ms) sub-second trader interactions, deterministic query resolution, and offline client resilience.
+AEROVANTA is architected as an event-consistent, low-latency analytical system optimized for sub-second trader interactions, deterministic query resolution, and zero-downtime client resilience.
 
+```mermaid
+flowchart TD
+    subgraph Client["Client Tier — React 19 / Vite 8 / Tailwind CSS"]
+        UI["Trader Workspace Canvas"]
+        M1["Gate Closure Matrix<br/>(EPEX 11:00 D-1, Re-nom, Intraday)"]
+        M2["Multi-Series Chart Engine<br/>(FUELHH Actuals, WINDFOR, Intraday)"]
+        M3["Market Zones & Hubs<br/>(Moray, Dogger Bank, Hornsea)"]
+        M4["Settlement Heatmap<br/>(Deviations & Disagreements)"]
+        M5["Audit Log & CSV Export<br/>(48 Settlement Periods)"]
+        UI --> M1 & M2 & M3 & M4 & M5
+    end
+
+    subgraph API["Application Tier — FastAPI (Python 3.12)"]
+        GW["REST API Gateway & CORS Controller"]
+        R1["/api/procurement/evaluation"]
+        R2["/api/procurement/vintages"]
+        R3["/api/procurement/export"]
+        R4["/api/procurement/status"]
+        GW --> R1 & R2 & R3 & R4
+        
+        subgraph Domain["Domain & Quantitative Engine"]
+            VINT["Anti-Leakage Vintage Selector<br/>MAX(publish_time) &le; cutoff"]
+            ALIGN["Interval Resolution Mapper<br/>Hourly to Half-Hourly Block"]
+            METRIC["Metrics Engine<br/>MAE, RMSE, Bias, Zero-Guarded WAPE"]
+        end
+        R1 --> VINT --> ALIGN --> METRIC
+        R2 --> VINT
+    end
+
+    subgraph Store["Persistence Tier — SQLite (WAL Mode)"]
+        DB[("aerovanta.db<br/>~4.8 MB pre-seeded")]
+        T1["actual_wind<br/>2,016 FUELHH records"]
+        T2["forecast_vintages<br/>27,056 WINDFOR records"]
+        T3["sync_audit_log<br/>Ingestion checkpoints"]
+        DB --- T1 & T2 & T3
+    end
+
+    subgraph External["External Market Data Source"]
+        BMRS["Elexon BMRS Open Data API<br/>https://data.elexon.co.uk/bmrs/api/v1"]
+        F1["FUELHH Stream (fuelType = 'WIND')"]
+        F2["WINDFOR Stream (Multi-vintage lookahead)"]
+        BMRS --- F1 & F2
+    end
+
+    Client -- "HTTPS / JSON REST API" --> GW
+    Domain -- "Parameterized SQL (&lt;5ms latency)" --> DB
+    BMRS -. "Periodic Batch Ingestion / CLI Sync" .-> API
 ```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                CLIENT WORKSPACE CANVAS                                 │
-│                                                                                        │
-│  React 19 SPA (Vite 8, Tailwind CSS, Recharts, Lucide Icons)                           │
-│  ├── Desk Selector (Great Britain, Settlement Audit Desk, Model Benchmarks)            │
-│  ├── Gate Closure Matrix (EPEX 11:00 D-1, Re-nom 17:00, Intraday T-4h, Gate T-1h)      │
-│  ├── Multi-Series Generation Curves (Actual FUELHH vs Selected WINDFOR vs Intraday)    │
-│  ├── Offshore Capacity Arrays Map & List (Moray, Dogger Bank, Hornsea, East Anglia)    │
-│  ├── Heatmap Matrix (Daily / Interval Error & Disagreement Spreads)                    │
-│  └── Granular Settlement Period Audit Table (48 half-hour SPs with Vintage Drilldown)   │
-└───────────────────────────────────────────┬────────────────────────────────────────────┘
-                                            │ HTTP / REST (Fetch + AbortController)
-                                            ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                              FASTAPI BACKEND SERVICE                                   │
-│                                                                                        │
-│  FastAPI (Python 3.12, Uvicorn, Pydantic v2 Models)                                    │
-│  ├── API Routes (/api/procurement/evaluation, /vintages, /export, /status, /health)    │
-│  ├── Domain Layer:                                                                     │
-│  │    ├── Anti-Leakage Vintage Selector (strftime RFC3339 matching)                    │
-│  │    ├── Interval Resolution Mapper (Hourly WINDFOR to Half-Hourly FUELHH)            │
-│  │    └── Metrics Engine (MAE, RMSE, Bias, Zero-Guarded WAPE)                          │
-│  └── Persistence Layer:                                                                │
-│       ├── SQLite Database with Write-Ahead Logging (WAL mode)                          │
-│       └── Elexon BMRS Async Ingestion Client (HTTPX, exponential backoff)              │
-└───────────────────────────────────────────┬────────────────────────────────────────────┘
-                                            │
-                                            ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                PERSISTENCE & DATA STORE                                │
-│                                                                                        │
-│  backend/data/aerovanta.db (~4.8 MB)                                                   │
-│  ├── actual_wind (2,016 FUELHH records strictly filtered to fuelType = 'WIND')         │
-│  ├── forecast_vintages (27,056 WINDFOR records with indexed start_time & publish_time) │
-│  └── sync_audit_log (Provenance and ingestion checkpoint audit trails)                 │
-└────────────────────────────────────────────────────────────────────────────────────────┘
-```
 
-### Architectural Design Rationale: Embedded SQLite with WAL Mode
-Querying Elexon BMRS stream endpoints on the fly during user interactions introduces 1–4 second roundtrip latency, rate limits, and network volatility. More importantly, Elexon's `WINDFOR` endpoint filters by *publication time* rather than delivery time, meaning a single target delivery day requires scanning multiple days of historical forecast streams.
+### System Decomposition & Layer Responsibilities
 
-To deliver **sub-5ms query performance**, AEROVANTA implements a pre-hydrated SQLite database running in **WAL (Write-Ahead Logging)** mode with compound B-tree indices on `(start_time, publish_time)`. If the backend service is offline, the frontend client falls back gracefully to a verified embedded January 2026 dataset with visual status transparency.
+#### Layer 1: Trader Workspace Presentation Tier (React 19 / Vite 8)
+- **Interactive Multi-Series Recharts Canvas:** Renders actual metered generation (`FUELHH`), selected vintage curve (`WINDFOR`), near-term intraday trajectory ($T-4\text{h}$), and standard deviation dispersion bands. Supports full Settlement Period scrubbing (1–48) and one-click Gross vs. Net ($\Delta$) toggle.
+- **Gate Closure Matrix:** Allows instant toggling between market gate rules (EPEX 11:00 D-1, Evening Re-nom 17:00, Intraday Rolling $T-4\text{h}$, and Near-Gate $T-1\text{h}$) with immediate client recalculation.
+- **Regional Hub Vector Map:** Stylized SVG representation of Great Britain with offshore wind clusters (Moray & Seagreen, Dogger Bank, Hornsea, East Anglia, Walney) linking geographic capacity to system-wide outturn.
+- **Dual Heatmap Matrix:** Visualizes daily forecast errors (+ for system long / - for system short) and cross-model spread divergences across the delivery month.
+
+#### Layer 2: API Gateway & Application Tier (FastAPI / Uvicorn)
+- **Non-blocking Asynchronous Execution:** Built on Starlette's async I/O loop to handle concurrent request bursts.
+- **Pydantic v2 Type Safety:** Strict serialization and validation of delivery timestamps, settlement period bounds (1–48), and metric schemas.
+- **Deterministic CSV Streamer:** Generates compliant CSV exports formatted for settlement reconciliation desks.
+
+#### Layer 3: Domain & Quantitative Engine
+- **RFC3339 Anti-Leakage Selector:** Reconciles ISO timestamps with millisecond precision, ensuring zero future vintages are considered.
+- **Zero-Division Mathematical Safeguards:** Implements bounded denominator guards on WAPE and coverage calculations to eliminate divide-by-zero crashes.
+- **Block-Hour Resolution Bridge:** Normalizes hourly forecast distributions to half-hourly settlement windows.
+
+#### Layer 4: High-Performance Persistence Tier (SQLite WAL Mode)
+- **Sub-5ms Query Latency:** Eliminates the 1–4s roundtrip latency of remote BMRS endpoints through compound B-tree indexed storage.
+- **Write-Ahead Logging (WAL):** Supports concurrent non-blocking reads during background synchronization.
+- **Pre-Hydrated Data Lake:** Ships with 2,016 metered wind records and 27,056 forecast vintages spanning all 31 days of January 2026.
 
 ---
 
