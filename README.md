@@ -8,6 +8,10 @@
 </p>
 
 <p align="center">
+  <a href="https://aerovanta-lyart.vercel.app" target="_blank"><img src="https://img.shields.io/badge/Live%20Demo-aerovanta--lyart.vercel.app-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo on Vercel" /></a>
+</p>
+
+<p align="center">
   <a href="#9-automated-verification--test-suite"><img src="https://img.shields.io/badge/pytest-10%20passed-emerald?style=flat-square&logo=pytest" alt="Backend Test Suite" /></a>
   <a href="#7-getting-started"><img src="https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.12" /></a>
   <a href="#6-api-specification"><img src="https://img.shields.io/badge/FastAPI-0.115+-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" /></a>
