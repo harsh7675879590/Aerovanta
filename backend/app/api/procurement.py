@@ -20,7 +20,9 @@ router = APIRouter(prefix="/api/procurement", tags=["procurement"])
 def get_evaluation(
     date: str = Query("2026-01-10", pattern=r"^\d{4}-\d{2}-\d{2}$", description="Target delivery date (YYYY-MM-DD)"),
     cutoff_preset: str = Query("day_ahead_11am", description="Preset cutoff rule"),
-    custom_cutoff: str | None = Query(None, description="Custom ISO cutoff string if preset is 'custom'")
+    custom_cutoff: str | None = Query(None, description="Custom ISO cutoff string if preset is 'custom'"),
+    zone: str = Query("GB_NATIONAL", description="Grid Market Zone"),
+    weighting: str = Query("capacity_wind", description="Weighting dispatch model")
 ):
     with get_db() as conn:
         eval_result = evaluate_day_procurement(
@@ -29,7 +31,56 @@ def get_evaluation(
             cutoff_preset=cutoff_preset,
             custom_cutoff=custom_cutoff
         )
-        metrics = calculate_metrics(eval_result["intervals"])
+
+        intervals = eval_result["intervals"]
+        if zone != "GB_NATIONAL" or weighting != "capacity_wind":
+            ZONE_FACTORS = {
+                "GB_NATIONAL": 1.0,
+                "SCOTLAND": 0.26,
+                "ENGLAND_NORTH": 0.32,
+                "ENGLAND_SOUTH": 0.19,
+                "WALES_IRISH_SEA": 0.14
+            }
+            z_mult = ZONE_FACTORS.get(zone, 1.0)
+            is_curtail = weighting == "curtailment_adj"
+            is_unweighted = weighting == "unweighted"
+            w_mult = 1.06 if is_unweighted else 1.0
+            
+            b6_ceiling = None
+            if is_curtail:
+                if zone == "SCOTLAND":
+                    b6_ceiling = 2100.0
+                elif zone == "GB_NATIONAL":
+                    b6_ceiling = 9500.0
+
+            scaled_intervals = []
+            for it in intervals:
+                it_copy = dict(it)
+                act = it_copy.get("actual_mw")
+                fc = it_copy.get("forecast_mw")
+                
+                if act is not None:
+                    act_scaled = act * z_mult * w_mult
+                    if b6_ceiling is not None and act_scaled > b6_ceiling:
+                        act_scaled = b6_ceiling
+                    it_copy["actual_mw"] = round(act_scaled, 2)
+                    it_copy["actual_mwh"] = round(act_scaled * 0.5, 2)
+                    
+                if fc is not None:
+                    fc_scaled = fc * z_mult * w_mult
+                    if b6_ceiling is not None and fc_scaled > b6_ceiling:
+                        fc_scaled = b6_ceiling
+                    it_copy["forecast_mw"] = round(fc_scaled, 2)
+                    it_copy["forecast_mwh"] = round(fc_scaled * 0.5, 2)
+                    
+                if it_copy.get("actual_mw") is not None and it_copy.get("forecast_mw") is not None:
+                    it_copy["error_mw"] = round(it_copy["forecast_mw"] - it_copy["actual_mw"], 2)
+                    it_copy["abs_error_mw"] = round(abs(it_copy["error_mw"]), 2)
+                    
+                scaled_intervals.append(it_copy)
+            intervals = scaled_intervals
+
+        metrics = calculate_metrics(intervals)
         
         coverage = CoverageSchema(
             total_target_intervals=metrics["total_intervals"],
@@ -57,7 +108,7 @@ def get_evaluation(
             cutoff_preset=eval_result["cutoff_preset"],
             cutoff_description=eval_result["cutoff_description"],
             summary=summary,
-            intervals=eval_result["intervals"]
+            intervals=intervals
         )
 
 @router.get("/vintages", response_model=VintageHistoryResponse)
