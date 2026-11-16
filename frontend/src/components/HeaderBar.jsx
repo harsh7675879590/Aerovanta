@@ -76,6 +76,28 @@ export default function HeaderBar({
           </button>
 
           <button
+            onClick={() => onSelectTab('forecast')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+              activeTab === 'forecast'
+                ? 'bg-[#182033] text-white border border-[#2a3754]'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-[#131929]'
+            }`}
+          >
+            Forecast Studio
+          </button>
+
+          <button
+            onClick={() => onSelectTab('market-aggregates')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+              activeTab === 'market-aggregates'
+                ? 'bg-[#182033] text-white border border-[#2a3754]'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-[#131929]'
+            }`}
+          >
+            Market Aggregates
+          </button>
+
+          <button
             onClick={() => onSelectTab('sp-table')}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
               activeTab === 'sp-table'

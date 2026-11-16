@@ -11,6 +11,8 @@ import StatusModal from './components/StatusModal';
 import OracleDeskView from './components/OracleDeskView';
 import BenchmarkDeskView from './components/BenchmarkDeskView';
 import DocumentationDeskView from './components/DocumentationDeskView';
+import ForecastDeskView from './components/ForecastDeskView';
+import MarketAggregatesDeskView from './components/MarketAggregatesDeskView';
 import { fetchEvaluation, fetchSystemStatus } from './services/api';
 import { Database, ShieldCheck, Clock, Layers } from 'lucide-react';
 
@@ -92,9 +94,13 @@ export default function App() {
   // Handle Sidebar Navigation
   const handleSelectNav = (navId) => {
     setActiveNav(navId);
-    if (navId === 'overview' || navId === 'market-aggregates' || navId === 'forecast') {
+    if (navId === 'overview') {
       setActiveTab('gb-wind');
       setCardLayout('all');
+    } else if (navId === 'forecast') {
+      setActiveTab('forecast');
+    } else if (navId === 'market-aggregates') {
+      setActiveTab('market-aggregates');
     } else if (navId === 'power') {
       setActiveTab('sp-table');
     } else if (navId === 'benchmarks' || navId === 'live-benchmarking') {
@@ -102,9 +108,7 @@ export default function App() {
     } else if (navId === 'oracle') {
       setActiveTab('oracle');
     } else if (navId === 'map') {
-      setActiveTab('gb-wind');
-      setCardLayout('all');
-      setSelectedZone('GB_NATIONAL');
+      setActiveTab('map-focus');
     } else if (navId === 'documentation') {
       setActiveTab('documentation');
     }
@@ -268,6 +272,60 @@ export default function App() {
                   />
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'forecast' && (
+            /* Dedicated Forecast Intelligence View */
+            <div className="pb-4">
+              <ForecastDeskView
+                intervals={filteredIntervals}
+                targetDate={selectedDate}
+                cutoffPreset={cutoffPreset}
+                onNavigate={setActiveTab}
+                onSelectInterval={setSelectedInterval}
+                selectedZone={selectedZone}
+              />
+            </div>
+          )}
+
+          {activeTab === 'market-aggregates' && (
+            /* Dedicated Energy Market Aggregates View */
+            <div className="pb-4">
+              <MarketAggregatesDeskView
+                intervals={filteredIntervals}
+                targetDate={selectedDate}
+                summary={evaluation?.summary}
+                onNavigate={setActiveTab}
+                selectedZone={selectedZone}
+              />
+            </div>
+          )}
+
+          {activeTab === 'map-focus' && (
+            /* Full-Focus GB Wind Map View */
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 pb-4">
+              <div className="lg:col-span-8 flex flex-col">
+                <MarketZoneMapCard
+                  onSelectZone={setSelectedZone}
+                  selectedZoneId={selectedZone}
+                  selectedWeighting={selectedWeighting}
+                  selectedVariable={selectedVariable}
+                />
+              </div>
+              <div className="lg:col-span-4 flex flex-col">
+                <DecisionMatrixCard
+                  selectedDate={selectedDate}
+                  onDateChange={setSelectedDate}
+                  cutoffPreset={cutoffPreset}
+                  onCutoffChange={setCutoffPreset}
+                  summary={evaluation?.summary}
+                  onSelectInterval={setSelectedInterval}
+                  selectedVariable={selectedVariable}
+                  selectedZone={selectedZone}
+                  selectedWeighting={selectedWeighting}
+                />
+              </div>
             </div>
           )}
 
