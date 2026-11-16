@@ -227,26 +227,13 @@ export default function DecisionMatrixCard({
             </button>
           </div>
 
-          {/* Quick Days Switcher */}
-          <div className="flex items-center gap-1.5 font-mono text-xs">
-            {days.map((d) => {
-              const dateStr = `2026-01-${d.toString().padStart(2, '0')}`;
-              const isSelected = selectedDate === dateStr;
-              return (
-                <button
-                  key={d}
-                  onClick={() => onDateChange(dateStr)}
-                  className={`px-2 py-0.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-[#ec4899] text-white shadow-sm shadow-pink-500/40'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-[#182033]'
-                  }`}
-                  title={`View data for Jan ${d}, 2026`}
-                >
-                  {d}
-                </button>
-              );
-            })}
+          {/* Clean Date Indicator */}
+          <div className="flex items-center gap-2 font-mono text-xs">
+            <span className="text-slate-400 text-[11px]">Delivery Date:</span>
+            <span className="px-2.5 py-1 rounded-md bg-[#161f33] border border-[#232f4a] text-white font-bold flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-pink-500" />
+              <span>{selectedDate}</span>
+            </span>
           </div>
         </div>
 
