@@ -81,6 +81,13 @@ export default function ChartCard({
 
   let totalCurtailedMWH = 0;
 
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+  const isViewingToday = intervals.length > 0 && intervals[0]?.start_time?.startsWith(todayStr);
+  const currentSP = Math.min(48, Math.max(1, Math.floor((now.getUTCHours() * 60 + now.getUTCMinutes()) / 30) + 1));
+  const liveInterval = intervals.find(it => it.is_live_now || (isViewingToday && it.settlement_period === currentSP));
+  const liveTimeSlot = liveInterval ? liveInterval.start_time.substring(11, 16) : null;
+
   const chartData = intervals.map((it, idx) => {
     const timeLabel = it.start_time.substring(11, 16);
     const sp = it.settlement_period;
@@ -89,88 +96,95 @@ export default function ChartCard({
     let curtailedMW = 0;
 
     if (selectedVariable === 'solar') {
-      // UK January Solar Generation Diurnal Bell Curve (active SP 17 to 33, peaking at SP 25 ~12:30 UTC)
+      // UK Solar Generation Diurnal Bell Curve
       if (sp >= 17 && sp <= 33) {
         const rad = ((sp - 17) / 16) * Math.PI;
         const solarCurve = Math.sin(rad) * baseSolarPeak;
-        actual = Math.round(solarCurve * (0.92 + 0.15 * Math.sin(idx)));
+        const isFutureInLive = isViewingToday && (sp > currentSP);
+        actual = isFutureInLive ? null : Math.round(solarCurve * (0.92 + 0.15 * Math.sin(idx)));
         forecast = Math.round(solarCurve);
-        delta = forecast - actual;
+        delta = actual !== null ? forecast - actual : null;
       } else {
-        actual = 0;
+        const isFutureInLive = isViewingToday && (sp > currentSP);
+        actual = isFutureInLive ? null : 0;
         forecast = 0;
-        delta = 0;
+        delta = actual !== null ? 0 : null;
       }
     } else if (selectedVariable === 'temperature') {
-      // Ambient January Temperature in °C
+      // Ambient Temperature in °C
       const rad = ((idx % 48) / 48) * 2 * Math.PI;
       const tempSwing = zoneTemp.swing * Math.sin(rad - 1.8);
-      actual = parseFloat((effectiveBaseTemp + tempSwing + 0.3 * Math.sin(idx)).toFixed(1));
+      const isFutureInLive = isViewingToday && (sp > currentSP);
+      actual = isFutureInLive ? null : parseFloat((effectiveBaseTemp + tempSwing + 0.3 * Math.sin(idx)).toFixed(1));
       forecast = parseFloat((effectiveBaseTemp + tempSwing).toFixed(1));
-      delta = parseFloat((forecast - actual).toFixed(1));
+      delta = actual !== null ? parseFloat((forecast - actual).toFixed(1)) : null;
     } else {
       // Wind Generation (MW)
-      const rawActual = it.actual_mw ?? 9200;
+      const rawActual = it.actual_mw;
       const rawForecast = it.forecast_mw ?? 9400;
 
       let unconstrainedActual, unconstrainedForecast;
 
-      if (selectedZone === 'SCOTLAND') {
-        // Scotland (Moray Firth, Seagreen, Whitelee):
-        // 1. Weather front arrives ~7 settlement periods earlier from the Atlantic
-        // 2. High offshore wind speed with distinct coastal gusts
+      if (rawActual === null || rawActual === undefined) {
+        unconstrainedActual = null;
+      } else if (selectedZone === 'SCOTLAND') {
         const shift = 7;
         const sActual = intervals[(idx + shift) % intervals.length]?.actual_mw ?? rawActual;
-        const sForecast = intervals[(idx + shift) % intervals.length]?.forecast_mw ?? rawForecast;
         const scotGust = 1.0 + 0.12 * Math.sin(((sp * 2) / 48) * 2 * Math.PI);
-
         unconstrainedActual = Math.round(sActual * 0.26 * scotGust);
-        unconstrainedForecast = Math.round(sForecast * 0.26 * scotGust);
       } else if (selectedZone === 'ENGLAND_NORTH') {
-        // England North (Dogger Bank & Hornsea):
-        // Steady North Sea offshore wind, high sustained afternoon capacity
         const shift = 2;
         const nActual = intervals[(idx + shift) % intervals.length]?.actual_mw ?? rawActual;
-        const nForecast = intervals[(idx + shift) % intervals.length]?.forecast_mw ?? rawForecast;
         const offshoreFactor = 1.0 + 0.08 * Math.cos((sp / 48) * 2 * Math.PI);
-
         unconstrainedActual = Math.round(nActual * 0.32 * offshoreFactor);
-        unconstrainedForecast = Math.round(nForecast * 0.32 * offshoreFactor);
       } else if (selectedZone === 'ENGLAND_SOUTH') {
-        // England South & East Anglia (London Array, East Anglia ONE):
-        // Peaks later in the afternoon/evening with Thames sea breeze
         const shift = -5;
         const sActual = intervals[(idx + shift + intervals.length) % intervals.length]?.actual_mw ?? rawActual;
-        const sForecast = intervals[(idx + shift + intervals.length) % intervals.length]?.forecast_mw ?? rawForecast;
         const southFactor = 0.94 + 0.16 * Math.sin(((sp - 20) / 48) * 2 * Math.PI);
-
         unconstrainedActual = Math.round(sActual * 0.19 * southFactor);
-        unconstrainedForecast = Math.round(sForecast * 0.19 * southFactor);
       } else if (selectedZone === 'WALES_IRISH_SEA') {
-        // Wales & Irish Sea (Walney, Gwynt y Môr):
-        // Irish Sea coastal wind pattern
         const shift = 3;
         const wActual = intervals[(idx + shift) % intervals.length]?.actual_mw ?? rawActual;
+        const irishSeaFactor = 0.96 + 0.12 * Math.sin((sp / 48) * 3 * Math.PI);
+        unconstrainedActual = Math.round(wActual * 0.14 * irishSeaFactor);
+      } else {
+        unconstrainedActual = rawActual;
+      }
+
+      if (selectedZone === 'SCOTLAND') {
+        const shift = 7;
+        const sForecast = intervals[(idx + shift) % intervals.length]?.forecast_mw ?? rawForecast;
+        const scotGust = 1.0 + 0.12 * Math.sin(((sp * 2) / 48) * 2 * Math.PI);
+        unconstrainedForecast = Math.round(sForecast * 0.26 * scotGust);
+      } else if (selectedZone === 'ENGLAND_NORTH') {
+        const shift = 2;
+        const nForecast = intervals[(idx + shift) % intervals.length]?.forecast_mw ?? rawForecast;
+        const offshoreFactor = 1.0 + 0.08 * Math.cos((sp / 48) * 2 * Math.PI);
+        unconstrainedForecast = Math.round(nForecast * 0.32 * offshoreFactor);
+      } else if (selectedZone === 'ENGLAND_SOUTH') {
+        const shift = -5;
+        const sForecast = intervals[(idx + shift + intervals.length) % intervals.length]?.forecast_mw ?? rawForecast;
+        const southFactor = 0.94 + 0.16 * Math.sin(((sp - 20) / 48) * 2 * Math.PI);
+        unconstrainedForecast = Math.round(sForecast * 0.19 * southFactor);
+      } else if (selectedZone === 'WALES_IRISH_SEA') {
+        const shift = 3;
         const wForecast = intervals[(idx + shift) % intervals.length]?.forecast_mw ?? rawForecast;
         const irishSeaFactor = 0.96 + 0.12 * Math.sin((sp / 48) * 3 * Math.PI);
-
-        unconstrainedActual = Math.round(wActual * 0.14 * irishSeaFactor);
         unconstrainedForecast = Math.round(wForecast * 0.14 * irishSeaFactor);
       } else {
-        // GB National Total
-        unconstrainedActual = rawActual;
         unconstrainedForecast = rawForecast;
       }
 
       // Apply Weighting Mode:
       if (isUnweighted) {
-        // Unweighted regional arithmetic mean across all 45 GSPs (higher local station variance)
-        unconstrainedActual = Math.round(unconstrainedActual * 1.06 + 75 * Math.sin(idx * 2.7));
+        if (unconstrainedActual !== null) {
+          unconstrainedActual = Math.round(unconstrainedActual * 1.06 + 75 * Math.sin(idx * 2.7));
+        }
         unconstrainedForecast = Math.round(unconstrainedForecast * 1.06);
       }
 
       // Apply Curtailment Clipping (The B6 Constraint):
-      if (b6Ceiling !== null && unconstrainedActual > b6Ceiling) {
+      if (b6Ceiling !== null && unconstrainedActual !== null && unconstrainedActual > b6Ceiling) {
         potentialActual = unconstrainedActual;
         actual = b6Ceiling;
         forecast = Math.min(unconstrainedForecast, b6Ceiling);
@@ -182,7 +196,7 @@ export default function ChartCard({
         potentialActual = null;
       }
 
-      delta = actual !== null && forecast !== null ? forecast - actual : 0;
+      delta = actual !== null && forecast !== null ? forecast - actual : null;
     }
 
     const intraday4h = forecast !== null && actual !== null
@@ -322,6 +336,14 @@ export default function ChartCard({
               <span className="text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded flex items-center gap-1 animate-pulse">
                 <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
                 <span>B6 Plateau Active: {Math.round(totalCurtailedMWH).toLocaleString()} MWh Curtailed</span>
+              </span>
+            )}
+
+            {/* Live Grid Real-Time Tag */}
+            {isViewingToday && (
+              <span className="text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded flex items-center gap-1.5 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                <span>LIVE GRID: SP {currentSP}/48 ({liveTimeSlot} UTC)</span>
               </span>
             )}
           </div>
@@ -559,6 +581,23 @@ export default function ChartCard({
                 />
               )}
 
+              {/* Real-Time Live Settlement Line */}
+              {liveTimeSlot && (
+                <ReferenceLine
+                  x={liveTimeSlot}
+                  stroke="#f43f5e"
+                  strokeWidth={2}
+                  strokeDasharray="3 3"
+                  label={{
+                    value: `🔴 LIVE NOW (${liveTimeSlot} UTC)`,
+                    fill: '#f43f5e',
+                    fontSize: 10,
+                    position: 'top',
+                    fontFamily: 'monospace'
+                  }}
+                />
+              )}
+
               {showDelta ? (
                 /* Delta mode showing deviation from zero */
                 <Line
@@ -617,6 +656,7 @@ export default function ChartCard({
                       stroke="#38bdf8"
                       strokeWidth={2.5}
                       dot={false}
+                      connectNulls={false}
                     />
                   )}
 

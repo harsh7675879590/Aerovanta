@@ -41,6 +41,21 @@ export default function App() {
   const [selectedInterval, setSelectedInterval] = useState(null);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
 
+  // Live Real-Time Clock State
+  const [clock, setClock] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setClock(new Date());
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const todayStr = clock.toISOString().split('T')[0];
+  const currentSP = Math.min(48, Math.max(1, Math.floor((clock.getUTCHours() * 60 + clock.getUTCMinutes()) / 30) + 1));
+  const liveUtcTime = `${String(clock.getUTCHours()).padStart(2, '0')}:${String(clock.getUTCMinutes()).padStart(2, '0')}:${String(clock.getUTCSeconds()).padStart(2, '0')} UTC`;
+  const isViewingToday = selectedDate === todayStr;
+
   const abortControllerRef = useRef(null);
 
   // Initial status check
@@ -153,6 +168,11 @@ export default function App() {
           searchQuery={searchQuery}
           onSearchQueryChange={setSearchQuery}
           onResetLayout={handleResetLayout}
+          liveUtcTime={liveUtcTime}
+          currentSP={currentSP}
+          todayStr={todayStr}
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
         />
 
         {/* Dynamic Workspace Body */}
@@ -161,9 +181,15 @@ export default function App() {
           {/* Top Status & Verified Provenance Pill */}
           <div className="flex flex-wrap items-center justify-between text-xs font-mono text-slate-400 px-3 py-1.5 rounded-xl bg-[#0e1424] border border-[#1a2338]">
             <div className="flex items-center gap-3">
-              <span className={`flex items-center gap-1.5 font-bold ${evaluation?.is_live !== false ? 'text-emerald-400' : 'text-amber-400'}`}>
-                <span className={`w-2 h-2 rounded-full animate-pulse ${evaluation?.is_live !== false ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                <span>{evaluation?.is_live !== false ? 'Elexon BMRS Live Stream (FUELHH & WINDFOR)' : 'Embedded Dataset (Backend Offline)'}</span>
+              <span className={`flex items-center gap-1.5 font-bold ${isViewingToday ? 'text-rose-400' : evaluation?.is_live !== false ? 'text-emerald-400' : 'text-amber-400'}`}>
+                <span className={`w-2 h-2 rounded-full animate-pulse ${isViewingToday ? 'bg-rose-500' : evaluation?.is_live !== false ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                <span>
+                  {isViewingToday
+                    ? `🔴 Real-Time Live Grid (Settlement Period ${currentSP} of 48 Active)`
+                    : evaluation?.is_live !== false
+                    ? 'Elexon BMRS Live Stream (FUELHH & WINDFOR)'
+                    : 'Historical Verified Store (January 2026)'}
+                </span>
               </span>
               <span className="text-slate-600">•</span>
               <span>All Timestamps UK / GMT</span>

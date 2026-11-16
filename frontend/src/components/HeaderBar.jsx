@@ -14,7 +14,12 @@ export default function HeaderBar({
   onToggleCardLayout,
   searchQuery,
   onSearchQueryChange,
-  onResetLayout
+  onResetLayout,
+  liveUtcTime,
+  currentSP,
+  todayStr,
+  selectedDate,
+  onSelectDate
 }) {
   const [isWeightingOpen, setIsWeightingOpen] = useState(false);
   const [isZoneOpen, setIsZoneOpen] = useState(false);
@@ -136,6 +141,24 @@ export default function HeaderBar({
           <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#1c243a] text-slate-400 border border-[#2a3654]">
             ⌘K
           </span>
+        </div>
+
+        {/* Real-Time Live Clock Badge */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={() => onSelectDate && onSelectDate(todayStr)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-mono transition-all cursor-pointer ${
+              selectedDate === todayStr
+                ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 shadow-sm shadow-rose-500/20'
+                : 'bg-[#131929] text-slate-300 hover:text-white border-[#1e273d] hover:bg-[#182033]'
+            }`}
+            title="Click to jump to Real-Time Live Grid for Today"
+          >
+            <span className={`w-2 h-2 rounded-full ${selectedDate === todayStr ? 'bg-rose-500 animate-pulse' : 'bg-emerald-400'}`} />
+            <span className="font-bold">{liveUtcTime || '12:00 UTC'}</span>
+            <span className="text-slate-500">|</span>
+            <span className="text-pink-400 font-bold">SP {currentSP || 24}/48</span>
+          </button>
         </div>
       </div>
 

@@ -22,7 +22,17 @@ export default function DecisionMatrixCard({
 }) {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const datePickerRef = useRef(null);
-  const dayInt = parseInt(selectedDate.split('-')[2], 10);
+
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+  const isToday = selectedDate === todayStr;
+  const currentSP = Math.min(48, Math.max(1, Math.floor((now.getUTCHours() * 60 + now.getUTCMinutes()) / 30) + 1));
+  const liveUtcTime = `${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')} UTC`;
+
+  const dateObj = new Date(`${selectedDate}T12:00:00Z`);
+  const formattedDateStr = isNaN(dateObj.getTime())
+    ? selectedDate
+    : dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
   // Compute dynamic KPIs responsive to Variable, Zone, and Weighting
   const ZONE_FACTORS = {
@@ -74,24 +84,16 @@ export default function DecisionMatrixCard({
   }, []);
 
   // Available days window around current selection
-  const days = [
-    Math.max(1, dayInt - 1),
-    dayInt,
-    Math.min(31, dayInt + 1)
-  ];
-
   const handlePrevDay = () => {
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() - 1);
-    const p = d.toISOString().split('T')[0];
-    if (p >= '2026-01-01') onDateChange(p);
+    const d = new Date(`${selectedDate}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 1);
+    onDateChange(d.toISOString().split('T')[0]);
   };
 
   const handleNextDay = () => {
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() + 1);
-    const n = d.toISOString().split('T')[0];
-    if (n <= '2026-01-31') onDateChange(n);
+    const d = new Date(`${selectedDate}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    onDateChange(d.toISOString().split('T')[0]);
   };
 
   const models = [
@@ -166,12 +168,11 @@ export default function DecisionMatrixCard({
         </div>
 
         {/* Date Selector Row */}
-        <div className="py-3 flex items-center justify-between border-b border-[#1a2236]">
-          <div className="flex items-center gap-2">
+        <div className="py-3 flex flex-wrap items-center justify-between border-b border-[#1a2236] gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={handlePrevDay}
-              disabled={selectedDate <= '2026-01-01'}
-              className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-20 cursor-pointer"
+              className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
               title="Previous Day"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -179,39 +180,88 @@ export default function DecisionMatrixCard({
             <div className="relative" ref={datePickerRef}>
               <button
                 onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
-                className="flex items-center gap-1.5 text-xs font-mono font-bold text-slate-200 hover:text-pink-400 transition-colors cursor-pointer px-1 py-0.5 rounded hover:bg-[#182033]"
-                title="Click to jump to any date in January 2026"
+                className="flex items-center gap-1.5 text-xs font-mono font-bold text-slate-200 hover:text-pink-400 transition-colors cursor-pointer px-1.5 py-0.5 rounded hover:bg-[#182033]"
+                title="Click to jump to any date or real-time live mode"
               >
                 <Calendar className="w-3.5 h-3.5 text-pink-400" />
-                <span>January 2026 (Day {dayInt})</span>
+                <span>{formattedDateStr}</span>
+                {isToday && (
+                  <span className="px-1.5 py-0.2 rounded text-[9px] bg-rose-500/20 text-rose-400 border border-rose-500/40 uppercase font-black tracking-wide">
+                    Live
+                  </span>
+                )}
               </button>
 
               {isDatePickerOpen && (
-                <div className="absolute left-0 top-8 z-50 bg-[#101625] border border-[#232f4a] rounded-xl p-3 shadow-2xl w-64 animate-fade-in font-mono">
-                  <div className="text-[11px] font-bold text-slate-300 mb-2 border-b border-[#1a2236] pb-1">
-                    Select Target Delivery Day (Jan 2026)
+                <div className="absolute left-0 top-8 z-50 bg-[#101625] border border-[#232f4a] rounded-xl p-3 shadow-2xl w-72 animate-fade-in font-mono space-y-3">
+                  <div className="text-[11px] font-bold text-slate-300 border-b border-[#1a2236] pb-1 flex items-center justify-between">
+                    <span>Select Target Delivery Date</span>
+                    <span className="text-[10px] text-slate-400">All Dates Supported</span>
                   </div>
-                  <div className="grid grid-cols-7 gap-1 text-center">
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map((dayNum) => {
-                      const dStr = `2026-01-${dayNum.toString().padStart(2, '0')}`;
-                      const isSel = selectedDate === dStr;
-                      return (
-                        <button
-                          key={dayNum}
-                          onClick={() => {
-                            onDateChange(dStr);
-                            setIsDatePickerOpen(false);
-                          }}
-                          className={`py-1 rounded text-xs transition-colors cursor-pointer ${
-                            isSel
-                              ? 'bg-[#ec4899] text-white font-bold'
-                              : 'text-slate-400 hover:bg-[#1b2438] hover:text-white'
-                          }`}
-                        >
-                          {dayNum}
-                        </button>
-                      );
-                    })}
+
+                  {/* Quick Select Buttons */}
+                  <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                    <button
+                      onClick={() => {
+                        onDateChange(todayStr);
+                        setIsDatePickerOpen(false);
+                      }}
+                      className={`p-1.5 rounded-lg border flex items-center gap-1.5 justify-center font-bold cursor-pointer transition-colors ${
+                        isToday
+                          ? 'bg-rose-500/20 border-rose-500/50 text-rose-300'
+                          : 'bg-[#141b2a] border-[#22304d] text-slate-300 hover:bg-[#1b253b]'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                      <span>Live Today</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const y = new Date();
+                        y.setUTCDate(y.getUTCDate() - 1);
+                        onDateChange(y.toISOString().split('T')[0]);
+                        setIsDatePickerOpen(false);
+                      }}
+                      className="p-1.5 rounded-lg border border-[#22304d] bg-[#141b2a] text-slate-300 hover:bg-[#1b253b] flex items-center justify-center cursor-pointer"
+                    >
+                      Yesterday
+                    </button>
+                    <button
+                      onClick={() => {
+                        onDateChange('2026-01-10');
+                        setIsDatePickerOpen(false);
+                      }}
+                      className="p-1.5 rounded-lg border border-[#22304d] bg-[#141b2a] text-slate-300 hover:bg-[#1b253b] flex items-center justify-center cursor-pointer"
+                    >
+                      Audit Jan 10
+                    </button>
+                    <button
+                      onClick={() => {
+                        onDateChange('2026-01-31');
+                        setIsDatePickerOpen(false);
+                      }}
+                      className="p-1.5 rounded-lg border border-[#22304d] bg-[#141b2a] text-slate-300 hover:bg-[#1b253b] flex items-center justify-center cursor-pointer"
+                    >
+                      Audit Jan 31
+                    </button>
+                  </div>
+
+                  {/* Native HTML5 Calendar Input for Any Date */}
+                  <div className="pt-2 border-t border-[#1a2236] space-y-1">
+                    <label className="text-[10px] text-slate-400 block font-sans">
+                      Jump to Any Custom Date:
+                    </label>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          onDateChange(e.target.value);
+                          setIsDatePickerOpen(false);
+                        }
+                      }}
+                      className="w-full bg-[#161f33] border border-[#232f4a] text-white text-xs px-2.5 py-1.5 rounded-lg focus:outline-none focus:border-pink-500 font-mono cursor-pointer"
+                    />
                   </div>
                 </div>
               )}
@@ -219,19 +269,30 @@ export default function DecisionMatrixCard({
 
             <button
               onClick={handleNextDay}
-              disabled={selectedDate >= '2026-01-31'}
-              className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-20 cursor-pointer"
+              className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
               title="Next Day"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Clean Date Indicator */}
+          {/* Clean Date Indicator with LIVE Pill */}
           <div className="flex items-center gap-2 font-mono text-xs">
-            <span className="text-slate-400 text-[11px]">Delivery Date:</span>
+            <button
+              onClick={() => onDateChange(todayStr)}
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] font-bold transition-all cursor-pointer ${
+                isToday
+                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-sm shadow-rose-500/20'
+                  : 'bg-[#161f33] text-slate-400 hover:text-slate-200 border-[#232f4a]'
+              }`}
+              title="Toggle Real-Time Live Mode for Today"
+            >
+              <span className={`w-2 h-2 rounded-full ${isToday ? 'bg-rose-500 animate-pulse' : 'bg-slate-500'}`} />
+              <span>{isToday ? `LIVE (SP ${currentSP})` : 'GO LIVE'}</span>
+            </button>
+
             <span className="px-2.5 py-1 rounded-md bg-[#161f33] border border-[#232f4a] text-white font-bold flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-pink-500" />
+              <span className={`w-2 h-2 rounded-full ${isToday ? 'bg-rose-500' : 'bg-pink-500'}`} />
               <span>{selectedDate}</span>
             </span>
           </div>
