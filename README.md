@@ -4,7 +4,7 @@
 
 <p align="center">
   <strong>GB Wind Generation Forecast Intelligence & Day-Ahead Procurement Audit Platform</strong><br>
-  <em>Reconstructing Decision-Time Forecast Accuracy Across the Great Britain Power Grid (January 2026)</em>
+  <em>Reconstructing Decision-Time Forecast Accuracy Across the Great Britain Power Grid (Live Real-Time & Historical Auditing)</em>
 </p>
 
 <p align="center">
@@ -32,9 +32,9 @@
 
 ---
 
-A high-performance quantitative forecasting and procurement audit platform engineered for Great Britain (GB) power market trading and dispatch desks. AEROVANTA ingests, reconciles, and evaluates half-hourly wind generation forecasts against metered physical outturns using official **Elexon BMRS** data feeds across **January 2026**.
+A high-performance quantitative forecasting and procurement audit platform engineered for Great Britain (GB) power market trading and dispatch desks. AEROVANTA ingests, reconciles, and evaluates half-hourly wind generation forecasts against metered physical outturns using official **Elexon BMRS** data feeds across both **Live Real-Time Grid Dispatch** (continuous UTC tracking) and historical procurement audit periods (**January 2026**).
 
-The platform provides a mathematically verified **zero forward-looking data leakage guarantee**, allowing power traders, utility procurement analysts, and risk managers to evaluate historical decision-time forecast accuracy at official market gate closures (e.g., EPEX SPOT Day-Ahead 11:00 GMT $D-1$).
+The platform provides a mathematically verified **zero forward-looking data leakage guarantee**, allowing power traders, utility procurement analysts, and risk managers to evaluate decision-time forecast accuracy at official market gate closures (e.g., EPEX SPOT Day-Ahead 11:00 GMT $D-1$) across all 48 half-hour settlement periods.
 
 ---
 
@@ -132,10 +132,17 @@ flowchart TD
 ### System Decomposition & Layer Responsibilities
 
 #### Layer 1: Trader Workspace Presentation Tier (React 19 / Vite 8)
-- **Interactive Multi-Series Recharts Canvas:** Renders actual metered generation (`FUELHH`), selected vintage curve (`WINDFOR`), near-term intraday trajectory ($T-4\text{h}$), and standard deviation dispersion bands. Supports full Settlement Period scrubbing (1–48) and one-click Gross vs. Net ($\Delta$) toggle.
-- **Gate Closure Matrix:** Allows instant toggling between market gate rules (EPEX 11:00 D-1, Evening Re-nom 17:00, Intraday Rolling $T-4\text{h}$, and Near-Gate $T-1\text{h}$) with immediate client recalculation.
+- **Live Real-Time Grid Mode & SP Ticker:** Tracks the active UTC time and current settlement period ($\text{SP } 1\text{ to } 48$) in real-time, plotting a vertical `🔴 LIVE NOW` line separating completed metered periods from pending Day-Ahead commitments.
+- **Multi-Desk Modular Architecture:**
+  - **Great Britain Overview:** 4-card master command dashboard (Models Decision Matrix, Multi-Model Chart, Offshore Map, and Settlement Heatmap).
+  - **Forecast Studio (`ForecastDeskView`):** Lead-time error decay curve ($T-48\text{h}$ to $T-1\text{h}$), Probabilistic P10/P50/P90 confidence envelope, and statutory gate closure model audits.
+  - **Energy Market Aggregates (`MarketAggregatesDeskView`):** Real-time generation fuel mix (Wind, Gas CCGT, Nuclear, Biomass, Solar, Interconnectors), dual cash-out imbalance calculator (SBP vs SSP), and cross-border net flows.
+  - **Settlement Audit Desk (`IntervalTable`):** Detailed 48-period audit ledger with instantaneous CSV export.
+  - **Model Benchmarks (`BenchmarkDeskView`):** Performance leaderboards and value rankings.
+- **Physical B6 Transmission Curtailment Modeling:** Explicitly simulates Anglo-Scottish B6 boundary export limitations by clipping output at 2,100 MW (Scotland) and 9,500 MW (GB National), rendering an amber constraint threshold and computing unconstrained curtailed volume ($MWh$).
+- **Any-Date Delivery Horizon:** Unlocked from January 2026 to any calendar date (past, present, or future) with native HTML5 date picker and quick jump shortcuts (`Live Today`, `Yesterday`, `Audit Jan 10`, `Audit Jan 31`).
+- **Interactive Multi-Series Recharts Canvas:** Renders actual metered generation (`FUELHH`), selected vintage curve (`WINDFOR`), near-term intraday trajectory ($T-4\text{h}$), and standard deviation dispersion bands. Supports full Settlement Period scrubbing (1–48), dual-scale toggling (`Auto Zoom` vs `30 GW Grid Scale`), and one-click Gross vs. Net ($\Delta$) toggle.
 - **Regional Hub Vector Map:** Stylized SVG representation of Great Britain with offshore wind clusters (Moray & Seagreen, Dogger Bank, Hornsea, East Anglia, Walney) linking geographic capacity to system-wide outturn.
-- **Dual Heatmap Matrix:** Visualizes daily forecast errors (+ for system long / - for system short) and cross-model spread divergences across the delivery month.
 
 #### Layer 2: API Gateway & Application Tier (FastAPI / Uvicorn)
 - **Non-blocking Asynchronous Execution:** Built on Starlette's async I/O loop to handle concurrent request bursts.
@@ -438,11 +445,13 @@ aerovanta/
 │   │   ├── components/
 │   │   │   ├── BenchmarkDeskView.jsx      # Model ranking table with metric sorting
 │   │   │   ├── ChartCard.jsx              # Recharts multi-series canvas with scrubber & delta mode
-│   │   │   ├── DecisionMatrixCard.jsx     # Gate closure pills & 31-day January calendar popover
+│   │   │   ├── DecisionMatrixCard.jsx     # Gate closure pills & any-date/live selector
 │   │   │   ├── DocumentationDeskView.jsx  # Technical market documentation & formulas
-│   │   │   ├── HeaderBar.jsx              # Tab navigation, variable/weighting/zone controls
+│   │   │   ├── ForecastDeskView.jsx       # Lead-time error decay & P10/P50/P90 probabilistic fan
+│   │   │   ├── HeaderBar.jsx              # Tab navigation, live clock ticker, filters
 │   │   │   ├── HeatmapMatrixCard.jsx      # Daily error matrix & forecast disagreement matrix
 │   │   │   ├── IntervalTable.jsx          # 48 Settlement period audit breakdown & status badges
+│   │   │   ├── MarketAggregatesDeskView.jsx # GB fuel mix, dual cash-out prices, and interconnectors
 │   │   │   ├── MarketZoneMapCard.jsx      # Offshore wind arrays interactive vector map & list
 │   │   │   ├── OracleDeskView.jsx         # Elexon BMRS stream ingestion architecture view
 │   │   │   ├── Sidebar.jsx                # Collapsible dark navigation sidebar
