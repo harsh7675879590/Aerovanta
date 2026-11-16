@@ -13,7 +13,16 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
-        changeOrigin: true
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', (err, req, res) => {
+            // Gracefully handle backend offline without polluting terminal
+            if (!res.headersSent && res.writeHead) {
+              res.writeHead(503, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Backend offline, using client fallback dataset' }));
+            }
+          });
+        }
       }
     }
   }
