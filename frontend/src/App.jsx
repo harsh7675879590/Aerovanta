@@ -48,7 +48,7 @@ export default function App() {
     fetchSystemStatus().then(setSystemStatus).catch(console.warn);
   }, []);
 
-  // Fetch evaluation data when date or cutoff changes
+  // Fetch evaluation data when date, cutoff, zone, or weighting changes
   useEffect(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -57,7 +57,7 @@ export default function App() {
     abortControllerRef.current = controller;
 
     setIsLoading(true);
-    fetchEvaluation(selectedDate, cutoffPreset, customCutoff, controller.signal)
+    fetchEvaluation(selectedDate, cutoffPreset, customCutoff, selectedZone, selectedWeighting, controller.signal)
       .then((data) => {
         setEvaluation(data);
         setIsLoading(false);
@@ -72,7 +72,7 @@ export default function App() {
     return () => {
       controller.abort();
     };
-  }, [selectedDate, cutoffPreset, customCutoff]);
+  }, [selectedDate, cutoffPreset, customCutoff, selectedZone, selectedWeighting]);
 
   // Handle Sidebar Navigation
   const handleSelectNav = (navId) => {

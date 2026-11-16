@@ -2,10 +2,12 @@ import { FALLBACK_JANUARY_DATA } from './fallbackData';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
-export async function fetchEvaluation(date, cutoffPreset = "day_ahead_11am", customCutoff = null, signal = null) {
+export async function fetchEvaluation(date, cutoffPreset = "day_ahead_11am", customCutoff = null, zone = "GB_NATIONAL", weighting = "capacity_wind", signal = null) {
   const params = new URLSearchParams({
     date,
-    cutoff_preset: cutoffPreset
+    cutoff_preset: cutoffPreset,
+    zone,
+    weighting
   });
   if (customCutoff) {
     params.append("custom_cutoff", customCutoff);

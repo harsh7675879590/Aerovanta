@@ -8,9 +8,10 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend
+  Legend,
+  ReferenceLine
 } from 'recharts';
-import { Maximize2, Download, Settings, Layers, Sliders, Check } from 'lucide-react';
+import { Maximize2, Download, Settings, Layers, Sliders, Check, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { getExportUrl } from '../services/api';
 
 export default function ChartCard({
@@ -24,6 +25,7 @@ export default function ChartCard({
   selectedWeighting = 'capacity_wind'
 }) {
   const [showDelta, setShowDelta] = useState(false);
+  const [scaleMode, setScaleMode] = useState('auto'); // 'auto' (zoom to fit) vs 'grid' (0-32k MW grid scale)
   const [zoomRange, setZoomRange] = useState([0, 48]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeSeries, setActiveSeries] = useState({
@@ -31,7 +33,8 @@ export default function ChartCard({
     selected: true,
     intraday: true,
     band: true,
-    mean: true
+    mean: true,
+    curtailed: true
   });
   const [isFullScreen, setIsFullScreen] = useState(false);
 
@@ -43,32 +46,22 @@ export default function ChartCard({
     setActiveSeries(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const ZONE_FACTORS = {
-    GB_NATIONAL: 1.0,
-    SCOTLAND: 0.26,
-    ENGLAND_NORTH: 0.32,
-    ENGLAND_SOUTH: 0.19,
-    WALES_IRISH_SEA: 0.14
-  };
-  const zoneMult = ZONE_FACTORS[selectedZone] || 1.0;
-
-  // Weighting mode calculations
   const isCurtailment = selectedWeighting === 'curtailment_adj';
   const isUnweighted = selectedWeighting === 'unweighted';
 
   // Regional temperature baselines & diurnal swings in °C
   const ZONE_TEMPS = {
-    GB_NATIONAL: { base: 5.2, swing: 2.4 },
-    SCOTLAND: { base: 2.2, swing: 1.8 }, // Scotland cold front
-    ENGLAND_NORTH: { base: 4.4, swing: 2.1 },
-    ENGLAND_SOUTH: { base: 7.4, swing: 2.8 }, // Mild southern Atlantic air
-    WALES_IRISH_SEA: { base: 5.8, swing: 2.0 }
+    GB_NATIONAL: { base: 5.2, swing: 2.4, name: 'GB National Average' },
+    SCOTLAND: { base: 2.2, swing: 1.8, name: 'Scotland Freezing Front' },
+    ENGLAND_NORTH: { base: 4.4, swing: 2.1, name: 'England North Maritime' },
+    ENGLAND_SOUTH: { base: 7.4, swing: 2.8, name: 'England South Mild Flow' },
+    WALES_IRISH_SEA: { base: 5.8, swing: 2.0, name: 'Wales Coastal' }
   };
   const zoneTemp = ZONE_TEMPS[selectedZone] || ZONE_TEMPS.GB_NATIONAL;
   const tempWeightShift = isCurtailment ? -0.4 : isUnweighted ? 0.3 : 0.0;
   const effectiveBaseTemp = zoneTemp.base + tempWeightShift;
 
-  // Regional solar peak capacities in MW
+  // Regional solar peak capacities in MW (January UK irradiation)
   const ZONE_SOLAR_PEAKS = {
     GB_NATIONAL: 4800,
     ENGLAND_SOUTH: 1850,
@@ -78,14 +71,25 @@ export default function ChartCard({
   };
   const baseSolarPeak = (ZONE_SOLAR_PEAKS[selectedZone] || 4800) * (isCurtailment ? 0.90 : isUnweighted ? 1.05 : 1.0);
 
-  // Compute dynamic curve based on selectedVariable, selectedZone, and selectedWeighting
+  // Compute dynamic physical curve based on selectedVariable, selectedZone, and selectedWeighting
+  let b6Ceiling = null;
+  if (selectedVariable === 'wind' && isCurtailment) {
+    if (selectedZone === 'SCOTLAND') b6Ceiling = 2100;       // Scotland B6 transmission export boundary rating
+    else if (selectedZone === 'GB_NATIONAL') b6Ceiling = 9500; // National grid cross-border constraint threshold
+    else if (selectedZone === 'ENGLAND_NORTH') b6Ceiling = 3400;
+  }
+
+  let totalCurtailedMWH = 0;
+
   const chartData = intervals.map((it, idx) => {
     const timeLabel = it.start_time.substring(11, 16);
     const sp = it.settlement_period;
     let actual, forecast, delta;
+    let potentialActual = null;
+    let curtailedMW = 0;
 
     if (selectedVariable === 'solar') {
-      // UK January Solar Generation Diurnal Bell Curve (active SP 17 to 33, peaking at SP 25)
+      // UK January Solar Generation Diurnal Bell Curve (active SP 17 to 33, peaking at SP 25 ~12:30 UTC)
       if (sp >= 17 && sp <= 33) {
         const rad = ((sp - 17) / 16) * Math.PI;
         const solarCurve = Math.sin(rad) * baseSolarPeak;
@@ -105,26 +109,79 @@ export default function ChartCard({
       forecast = parseFloat((effectiveBaseTemp + tempSwing).toFixed(1));
       delta = parseFloat((forecast - actual).toFixed(1));
     } else {
-      // Wind Generation (MW) scaled by selected zone capacity & weighting
-      const rawActual = it.actual_mw;
-      const rawForecast = it.forecast_mw;
-      
-      let scaledActual = rawActual !== null ? rawActual * zoneMult * (isUnweighted ? 1.06 : 1.0) : null;
-      let scaledForecast = rawForecast !== null ? rawForecast * zoneMult * (isUnweighted ? 1.06 : 1.0) : null;
-      
-      // If curtailment adjusted and Scotland or GB national, factor the B6 Anglo-Scottish constraint
-      if (isCurtailment) {
-        if (selectedZone === 'SCOTLAND') {
-          scaledActual = scaledActual !== null ? Math.min(scaledActual * 0.82, 6400) : null;
-          scaledForecast = scaledForecast !== null ? Math.min(scaledForecast * 0.82, 6400) : null;
-        } else if (selectedZone === 'GB_NATIONAL') {
-          scaledActual = scaledActual !== null ? Math.max(0, scaledActual - 1400) : null;
-          scaledForecast = scaledForecast !== null ? Math.max(0, scaledForecast - 1400) : null;
-        }
+      // Wind Generation (MW)
+      const rawActual = it.actual_mw ?? 9200;
+      const rawForecast = it.forecast_mw ?? 9400;
+
+      let unconstrainedActual, unconstrainedForecast;
+
+      if (selectedZone === 'SCOTLAND') {
+        // Scotland (Moray Firth, Seagreen, Whitelee):
+        // 1. Weather front arrives ~7 settlement periods earlier from the Atlantic
+        // 2. High offshore wind speed with distinct coastal gusts
+        const shift = 7;
+        const sActual = intervals[(idx + shift) % intervals.length]?.actual_mw ?? rawActual;
+        const sForecast = intervals[(idx + shift) % intervals.length]?.forecast_mw ?? rawForecast;
+        const scotGust = 1.0 + 0.12 * Math.sin(((sp * 2) / 48) * 2 * Math.PI);
+
+        unconstrainedActual = Math.round(sActual * 0.26 * scotGust);
+        unconstrainedForecast = Math.round(sForecast * 0.26 * scotGust);
+      } else if (selectedZone === 'ENGLAND_NORTH') {
+        // England North (Dogger Bank & Hornsea):
+        // Steady North Sea offshore wind, high sustained afternoon capacity
+        const shift = 2;
+        const nActual = intervals[(idx + shift) % intervals.length]?.actual_mw ?? rawActual;
+        const nForecast = intervals[(idx + shift) % intervals.length]?.forecast_mw ?? rawForecast;
+        const offshoreFactor = 1.0 + 0.08 * Math.cos((sp / 48) * 2 * Math.PI);
+
+        unconstrainedActual = Math.round(nActual * 0.32 * offshoreFactor);
+        unconstrainedForecast = Math.round(nForecast * 0.32 * offshoreFactor);
+      } else if (selectedZone === 'ENGLAND_SOUTH') {
+        // England South & East Anglia (London Array, East Anglia ONE):
+        // Peaks later in the afternoon/evening with Thames sea breeze
+        const shift = -5;
+        const sActual = intervals[(idx + shift + intervals.length) % intervals.length]?.actual_mw ?? rawActual;
+        const sForecast = intervals[(idx + shift + intervals.length) % intervals.length]?.forecast_mw ?? rawForecast;
+        const southFactor = 0.94 + 0.16 * Math.sin(((sp - 20) / 48) * 2 * Math.PI);
+
+        unconstrainedActual = Math.round(sActual * 0.19 * southFactor);
+        unconstrainedForecast = Math.round(sForecast * 0.19 * southFactor);
+      } else if (selectedZone === 'WALES_IRISH_SEA') {
+        // Wales & Irish Sea (Walney, Gwynt y Môr):
+        // Irish Sea coastal wind pattern
+        const shift = 3;
+        const wActual = intervals[(idx + shift) % intervals.length]?.actual_mw ?? rawActual;
+        const wForecast = intervals[(idx + shift) % intervals.length]?.forecast_mw ?? rawForecast;
+        const irishSeaFactor = 0.96 + 0.12 * Math.sin((sp / 48) * 3 * Math.PI);
+
+        unconstrainedActual = Math.round(wActual * 0.14 * irishSeaFactor);
+        unconstrainedForecast = Math.round(wForecast * 0.14 * irishSeaFactor);
+      } else {
+        // GB National Total
+        unconstrainedActual = rawActual;
+        unconstrainedForecast = rawForecast;
       }
-      
-      actual = scaledActual !== null ? Math.round(scaledActual) : null;
-      forecast = scaledForecast !== null ? Math.round(scaledForecast) : null;
+
+      // Apply Weighting Mode:
+      if (isUnweighted) {
+        // Unweighted regional arithmetic mean across all 45 GSPs (higher local station variance)
+        unconstrainedActual = Math.round(unconstrainedActual * 1.06 + 75 * Math.sin(idx * 2.7));
+        unconstrainedForecast = Math.round(unconstrainedForecast * 1.06);
+      }
+
+      // Apply Curtailment Clipping (The B6 Constraint):
+      if (b6Ceiling !== null && unconstrainedActual > b6Ceiling) {
+        potentialActual = unconstrainedActual;
+        actual = b6Ceiling;
+        forecast = Math.min(unconstrainedForecast, b6Ceiling);
+        curtailedMW = unconstrainedActual - b6Ceiling;
+        totalCurtailedMWH += curtailedMW * 0.5;
+      } else {
+        actual = unconstrainedActual;
+        forecast = unconstrainedForecast;
+        potentialActual = null;
+      }
+
       delta = actual !== null && forecast !== null ? forecast - actual : 0;
     }
 
@@ -148,6 +205,8 @@ export default function ChartCard({
       timeLabel,
       actual,
       forecast,
+      potentialActual,
+      curtailedMW,
       intraday4h,
       bandUpper,
       bandLower,
@@ -173,13 +232,26 @@ export default function ChartCard({
             <div className="flex items-center justify-between gap-4">
               <span className="text-[#38bdf8] flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#38bdf8]" />
-                {selectedVariable === 'temperature' ? 'Actual Temp:' : selectedVariable === 'solar' ? 'Actual Solar:' : 'Actual (FUELHH):'}
+                {selectedVariable === 'temperature' ? 'Actual Temp:' : selectedVariable === 'solar' ? 'Actual Solar:' : 'Dispatched Actual:'}
               </span>
               <span className="font-bold text-white">
                 {d.actual?.toLocaleString()} {selectedVariable === 'temperature' ? '°C' : 'MW'}
               </span>
             </div>
           )}
+
+          {d.curtailedMW > 0 && (
+            <div className="flex items-center justify-between gap-4 text-amber-400">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                B6 Curtailed Wind:
+              </span>
+              <span className="font-bold">
+                +{d.curtailedMW.toLocaleString()} MW
+              </span>
+            </div>
+          )}
+
           {activeSeries.selected && (
             <div className="flex items-center justify-between gap-4">
               <span className="text-[#818cf8] flex items-center gap-1.5">
@@ -191,6 +263,7 @@ export default function ChartCard({
               </span>
             </div>
           )}
+
           {activeSeries.intraday && (
             <div className="flex items-center justify-between gap-4">
               <span className="text-[#ec4899] flex items-center gap-1.5">
@@ -202,20 +275,27 @@ export default function ChartCard({
               </span>
             </div>
           )}
-          <div className="border-t border-[#1b2337] pt-1 flex items-center justify-between gap-4">
-            <span className="text-slate-400">Deviation (Δ):</span>
-            <span className={`font-bold ${isOver ? 'text-[#f43f85]' : 'text-[#38bdf8]'}`}>
-              {d.delta > 0 ? `+${d.delta}` : d.delta} {selectedVariable === 'temperature' ? '°C' : 'MW'}
+
+          <div className="flex items-center justify-between gap-4 border-t border-[#1b2337] pt-1">
+            <span className="text-slate-400">Net Variance (Error):</span>
+            <span className={`font-bold ${isOver ? 'text-pink-400' : 'text-sky-400'}`}>
+              {isOver ? '+' : ''}{d.delta?.toLocaleString()} {selectedVariable === 'temperature' ? '°C' : 'MW'}
             </span>
           </div>
-        </div>
-
-        <div className="pt-1 text-[9px] text-slate-400 text-center flex items-center justify-center gap-1">
-          <Layers className="w-2.5 h-2.5 text-pink-400" /> Click interval to audit revision history
         </div>
       </div>
     );
   };
+
+  // Compute Y-Axis Domain based on scaleMode
+  let yAxisDomain = [0, 'auto'];
+  if (scaleMode === 'grid') {
+    if (selectedVariable === 'wind') yAxisDomain = [0, 32000];
+    else if (selectedVariable === 'solar') yAxisDomain = [0, 6000];
+    else if (selectedVariable === 'temperature') yAxisDomain = [0, 15];
+  } else {
+    if (selectedVariable === 'temperature') yAxisDomain = ['auto', 'auto'];
+  }
 
   return (
     <>
@@ -232,14 +312,23 @@ export default function ChartCard({
       <div>
         {/* Card Header & Controls */}
         <div className="flex flex-wrap items-center justify-between pb-3 border-b border-[#1b2337] gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2.5">
             <h2 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
               Charts — {selectedZoneTitle || 'Great Britain'} {selectedVariable === 'solar' ? 'Solar Output' : selectedVariable === 'temperature' ? 'Ambient Temp' : 'Wind Generation'}
             </h2>
+
+            {/* Curtailment Alert Tag */}
+            {isCurtailment && totalCurtailedMWH > 0 && (
+              <span className="text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded flex items-center gap-1 animate-pulse">
+                <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
+                <span>B6 Plateau Active: {Math.round(totalCurtailedMWH).toLocaleString()} MWh Curtailed</span>
+              </span>
+            )}
           </div>
 
           {/* Action Toolbar */}
           <div className="flex items-center gap-2 text-xs font-mono">
+            {/* Mode: Data vs Delta */}
             <div className="flex items-center bg-[#0d121d] rounded-lg p-0.5 border border-[#1c2438]">
               <button
                 onClick={() => setShowDelta(false)}
@@ -261,6 +350,26 @@ export default function ChartCard({
               </button>
             </div>
 
+            {/* Scale Toggle: Auto Zoom vs GB Grid Scale */}
+            <div className="flex items-center bg-[#0d121d] rounded-lg p-0.5 border border-[#1c2438]" title="Switch between regional auto-zoom and full GB grid scale (30 GW)">
+              <button
+                onClick={() => setScaleMode('auto')}
+                className={`px-2 py-0.5 rounded text-[10px] transition-all cursor-pointer ${
+                  scaleMode === 'auto' ? 'bg-[#1f293d] text-sky-400 font-bold' : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                Auto Zoom
+              </button>
+              <button
+                onClick={() => setScaleMode('grid')}
+                className={`px-2 py-0.5 rounded text-[10px] transition-all cursor-pointer ${
+                  scaleMode === 'grid' ? 'bg-[#1f293d] text-pink-400 font-bold' : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                30 GW Grid Scale
+              </button>
+            </div>
+
             {/* Settings dropdown */}
             <div className="relative">
               <button
@@ -272,7 +381,7 @@ export default function ChartCard({
               </button>
 
               {isSettingsOpen && (
-                <div className="absolute right-0 top-8 z-50 bg-[#101625] border border-[#232f4a] rounded-xl p-2.5 shadow-2xl w-48 font-mono text-[11px] animate-fade-in space-y-1">
+                <div className="absolute right-0 top-8 z-50 bg-[#101625] border border-[#232f4a] rounded-xl p-2.5 shadow-2xl w-52 font-mono text-[11px] animate-fade-in space-y-1">
                   <div className="text-slate-400 font-bold border-b border-slate-800 pb-1 mb-1">Toggle Series</div>
                   {[
                     { id: 'actual', label: 'Actual FUELHH', color: '#38bdf8' },
@@ -317,7 +426,7 @@ export default function ChartCard({
           </div>
         </div>
 
-        {/* Legend Pills Row (Jua style) - Clickable to toggle series */}
+        {/* Legend Pills Row */}
         <div className="py-2.5 flex flex-wrap items-center gap-2 text-[11px] font-mono border-b border-[#182033]">
           <button
             onClick={() => toggleSeries('actual')}
@@ -328,7 +437,7 @@ export default function ChartCard({
             }`}
           >
             <span className="w-2.5 h-2.5 rounded-sm bg-[#38bdf8]" />
-            <span>{selectedVariable === 'temperature' ? 'Actual Ambient Temp' : selectedVariable === 'solar' ? 'Actual Solar Outturn' : 'Actual (FUELHH)'}</span>
+            <span>{selectedVariable === 'temperature' ? 'Actual Ambient Temp' : selectedVariable === 'solar' ? 'Actual Solar Outturn' : 'Dispatched Actual'}</span>
           </button>
 
           <button
@@ -354,6 +463,13 @@ export default function ChartCard({
             <span className="w-2.5 h-2.5 rounded-sm bg-[#ec4899]" />
             <span>{selectedVariable === 'temperature' ? 'Intraday Adjusted' : 'Intraday (T-4h)'}</span>
           </button>
+
+          {isCurtailment && b6Ceiling && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/30">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+              <span>B6 Ceiling: {b6Ceiling.toLocaleString()} MW</span>
+            </div>
+          )}
 
           <button
             onClick={() => toggleSeries('band')}
@@ -385,7 +501,7 @@ export default function ChartCard({
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart
               data={chartData}
-              margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
+              margin={{ top: 10, right: 15, left: -10, bottom: 0 }}
               onClick={(e) => {
                 if (e && e.activePayload && e.activePayload.length) {
                   onSelectInterval(e.activePayload[0].payload);
@@ -402,6 +518,10 @@ export default function ChartCard({
                   <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.2} />
                   <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.0} />
                 </linearGradient>
+                <linearGradient id="curtailGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.05} />
+                </linearGradient>
               </defs>
 
               <CartesianGrid strokeDasharray="2 2" stroke="#1b2338" vertical={false} />
@@ -416,10 +536,28 @@ export default function ChartCard({
                 stroke="#475569"
                 tickLine={false}
                 axisLine={false}
+                domain={yAxisDomain}
                 tick={{ fontSize: 10, fill: '#64748b', fontFamily: 'monospace' }}
                 tickFormatter={(v) => selectedVariable === 'temperature' ? `${v}°C` : `${(v / 1000).toFixed(0)}k MW`}
               />
               <Tooltip content={<CustomTooltip />} />
+
+              {/* B6 Constraint Reference Line */}
+              {b6Ceiling !== null && (
+                <ReferenceLine
+                  y={b6Ceiling}
+                  stroke="#f59e0b"
+                  strokeWidth={2}
+                  strokeDasharray="4 4"
+                  label={{
+                    value: `B6 Constraint Ceiling: ${(b6Ceiling / 1000).toFixed(1)} GW`,
+                    fill: '#f59e0b',
+                    fontSize: 10,
+                    position: 'top',
+                    fontFamily: 'monospace'
+                  }}
+                />
+              )}
 
               {showDelta ? (
                 /* Delta mode showing deviation from zero */
@@ -434,6 +572,19 @@ export default function ChartCard({
               ) : (
                 /* Standard generation curves */
                 <>
+                  {/* Curtailed Wind Potential Area (shows lost volume above B6 limit) */}
+                  {isCurtailment && activeSeries.curtailed && (
+                    <Area
+                      type="monotone"
+                      dataKey="potentialActual"
+                      name="Unconstrained Wind Potential"
+                      stroke="#f59e0b"
+                      strokeWidth={1.5}
+                      strokeDasharray="3 3"
+                      fill="url(#curtailGrad)"
+                    />
+                  )}
+
                   {/* Standard Deviation Band Area */}
                   {activeSeries.band && (
                     <Area
@@ -444,6 +595,7 @@ export default function ChartCard({
                       fillOpacity={0.08}
                     />
                   )}
+
                   {/* Selected WINDFOR Forecast */}
                   {activeSeries.selected && (
                     <Line
@@ -455,17 +607,19 @@ export default function ChartCard({
                       dot={false}
                     />
                   )}
-                  {/* Actual Wind Generation */}
+
+                  {/* Dispatched Actual Generation */}
                   {activeSeries.actual && (
                     <Line
                       type="monotone"
                       dataKey="actual"
-                      name="Actual Generation"
+                      name="Dispatched Actual"
                       stroke="#38bdf8"
                       strokeWidth={2.5}
                       dot={false}
                     />
                   )}
+
                   {/* Intraday 4h Series */}
                   {activeSeries.intraday && (
                     <Line
@@ -478,6 +632,7 @@ export default function ChartCard({
                       dot={false}
                     />
                   )}
+
                   {/* Mean Guide Line */}
                   {activeSeries.mean && (
                     <Line
